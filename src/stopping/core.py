@@ -1,33 +1,37 @@
-"""
+"""Stopping algorithms for active learning.
 """
 
-from abc import abstractmethod, ABC
-from typing import Literal
+from collections import deque
+from typing import Literal, Protocol
 
 import numpy as np
 from sklearn.metrics import accuracy_score, cohen_kappa_score
 
 
-class Stopper(ABC):
-    def __init__(self) -> None:
+__all__ = [
+    "Stopper",
+    "ContinuousStopper",
+    "StabilizingPredictionsStopper",
+    "ChangingCondifenceStopper",
+    "ClassificationChangeStopper",
+]
+
+
+class Stopper(Protocol):
+    def __call__(self, *args, **kwds) -> bool:
         ...
 
-    @abstractmethod
-    def __call__(self) -> bool:
-        ...
 
-
-class NoOpStopper(Stopper):
+class ContinuousStopper:
     def __call__(self) -> bool:
         return False
 
 
-class StabilizingPredictionsStopper(Stopper):
-    def __init__(self, windows: int, threshold: float, **kwds) -> None:
-        super().__init__(**kwds)
+class StabilizingPredictionsStopper:
+    def __init__(self, windows: int, threshold: float) -> None:
         self.windows = windows
         self.threshold = threshold
-        self.agreement_scores = []
+        self.agreement_scores = deque(maxlen=windows)
         self.prv_stop_set_preds = None
         self.stop_set_indices = None
 
@@ -42,49 +46,35 @@ class StabilizingPredictionsStopper(Stopper):
         self.agreement_scores.append(agreement)
         self.prv_stop_set_preds = stop_set_preds
 
-        if len(self.agreement_scores[1:]) < self.windows:
+        if len(self.agreement_scores) < self.windows:
             return False
-        if np.mean(self.agreement_scores[-self.windows :]) > self.threshold:
+        if np.mean(self.agreement_scores) > self.threshold:
             return True
         return False
 
 
-class ChangingCondifenceStopper(Stopper):
-    def __init__(self, windows: int, mode: Literal["<", "<="], **kwds) -> None:
-        super().__init__(**kwds)
+class ChangingCondifenceStopper:
+    def __init__(self, windows: int, mode: Literal["D", "N"]) -> None:
         self.windows = windows
         self.mode = mode
-        self.conf_scores = []
-        self.stop_set_indices = None
+        self.conf_scores = deque(maxlen=windows)
 
     def __call__(self, stop_set_confs: np.ndarray) -> bool:
-        confidence = np.mean(stop_set_confs)
-        self.conf_scores.append(confidence)
-
-        if len(self.conf_scores) + 1 < self.windows:
+        c = np.mean(stop_set_confs)
+        if len(self.conf_scores) < self.windows:
+            self.conf_scores.append(c)
             return False
-
-        if self.mode == "<":
-            prv_conf = self.conf_scores[-self.windows - 1]
-            for conf in self.conf_scores[-self.windows :]:
-                if conf >= prv_conf:
-                    return False
+        prv = self.conf_scores.popleft()
+        self.conf_scores.append(c)
+        if self.mode == "D" and all(c < prv for c in self.conf_scores):
             return True
-
-        if self.mode == "<=":
-            prv_conf = self.conf_scores[-self.windows - 1]
-            for conf in self.conf_scores[-self.windows :]:
-                if conf >= prv_conf:
-                    return False
-                prv_conf = conf
+        if self.mode == "N" and all(c <= prv for c in self.conf_scores):
             return True
+        return False
 
-        raise ValueError(f"{self.mode=} is not supported.")
 
-
-class ClassificationChangeStopper(Stopper):
-    def __init__(self, threshold: float, increment: float, **kwds) -> None:
-        super().__init__(**kwds)
+class ClassificationChangeStopper:
+    def __init__(self, threshold: float, increment: float) -> None:
         self.threshold = threshold
         self.threshold_increment = increment
         self.prev_unlabeled_preds = None

@@ -1,4 +1,4 @@
-"""
+"""Useful functions and classes.
 """
 
 import numpy as np

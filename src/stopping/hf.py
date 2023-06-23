@@ -1,4 +1,4 @@
-"""
+"""High-level wrappers around stopping algorithms.
 """
 
 from __future__ import annotations
@@ -9,11 +9,19 @@ import pickle
 from datasets import Dataset
 from transformers import PreTrainedModel
 
-from stopping.stoppers import Stopper
-from utils import pickler
+from src.stopping.core import Stopper
+from src.utils import SaveLoadPickleMixin
+
+__all__ = [
+    "StopperWrapper",
+    "ContinuousStopperWrapper",
+    "StabilizingPredictionsStopperWrapper",
+    "ChangingCondifenceStopperWrapper",
+    "ClassificationChangeStopperWrapper",
+]
 
 
-class StopperWrapper(ABC):
+class StopperWrapper(ABC, SaveLoadPickleMixin):
     def __init__(self, stopper: Stopper, *, interrupt: bool = False) -> None:
         self._stopper = stopper
         self._interrupt = interrupt
@@ -29,27 +37,23 @@ class StopperWrapper(ABC):
     def interrupt(self) -> bool:
         return self._interrupt
 
-    @classmethod
-    def load(cls, path) -> StopperWrapper:
-        return pickler(path)
-
-    def save(self, path: Path) -> None:
-        pickler(path, self)
-
     @abstractmethod
     def _get_args(self, model: PreTrainedModel, dataset: Dataset, n: int = 1) -> tuple:
         ...
 
 
-class NoOpWrapper(StopperWrapper):
+class ContinuousStopperWrapper(StopperWrapper):
     def _get_args(self, *args, **kwds) -> tuple:  # pylint: disable=unused-argument
         return tuple()
 
 
-class StabizingPredictionsWrapper(StopperWrapper):
+class StabizingPredictionsStopperWrapper(StopperWrapper):
     def __init__(self, stopper: Stopper, arg: int, **kwds) -> None:
         super().__init__(stopper, **kwds)
         self.arg = arg
 
     def _get_args(self, model: PreTrainedModel, dataset: Dataset, n: int = 1) -> tuple:
         return (self.arg,)
+
+class ChangingCondifenceStopperWrapper:
+    raise NotImplementedError()
