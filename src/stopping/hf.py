@@ -10,7 +10,6 @@ from datasets import Dataset
 from transformers import PreTrainedModel
 
 from src.stopping.core import Stopper
-from src.utils import SaveLoadPickleMixin
 
 __all__ = [
     "StopperWrapper",
@@ -21,7 +20,7 @@ __all__ = [
 ]
 
 
-class StopperWrapper(ABC, SaveLoadPickleMixin):
+class StopperWrapper(ABC):
     def __init__(self, stopper: Stopper, *, interrupt: bool = False) -> None:
         self._stopper = stopper
         self._interrupt = interrupt
@@ -47,7 +46,7 @@ class ContinuousStopperWrapper(StopperWrapper):
         return tuple()
 
 
-class StabizingPredictionsStopperWrapper(StopperWrapper):
+class StabilizingPredictionsStopperWrapper(StopperWrapper):
     def __init__(self, stopper: Stopper, arg: int, **kwds) -> None:
         super().__init__(stopper, **kwds)
         self.arg = arg
@@ -55,5 +54,10 @@ class StabizingPredictionsStopperWrapper(StopperWrapper):
     def _get_args(self, model: PreTrainedModel, dataset: Dataset, n: int = 1) -> tuple:
         return (self.arg,)
 
+
 class ChangingCondifenceStopperWrapper:
+    raise NotImplementedError()
+
+
+class ClassificationChangeStopperWrapper:
     raise NotImplementedError()

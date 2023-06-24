@@ -9,7 +9,7 @@ from numpy import ma
 from numpy import random
 from scipy.stats import entropy
 
-from src.querying.utils import multi_argmax
+from src.utils import multi_argmax
 
 
 __all__ = [

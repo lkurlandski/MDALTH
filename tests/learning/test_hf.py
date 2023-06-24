@@ -17,7 +17,7 @@ from transformers import (
     TrainingArguments,
 )
 
-from src.learning.hf import ActiveLearner, IOArgs
+from src.learning.hf import ActiveLearner, IOHelper
 from src.pool import Pool
 from src.querying.core import RandomQuerier
 from src.querying.hf import RandomQuerierWrapper
@@ -74,7 +74,7 @@ class MyActiveLeaner(ActiveLearner):
 # MyActiveLeaner(
 #     tokenized_imdb,
 #     Pool(len(tokenized_imdb["train"])),
-#     io_args=IOArgs(overwrite=True),
+#     io_args=IOHelper(overwrite=True),
 # )()
 
 training_args = TrainingArguments(
