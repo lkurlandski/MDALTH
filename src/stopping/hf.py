@@ -9,7 +9,7 @@ import pickle
 from datasets import Dataset
 from transformers import PreTrainedModel
 
-from src.stopping.core import Stopper
+from src.stopping.stoppers import Stopper
 
 __all__ = [
     "StopperWrapper",
@@ -56,8 +56,8 @@ class StabilizingPredictionsStopperWrapper(StopperWrapper):
 
 
 class ChangingCondifenceStopperWrapper:
-    raise NotImplementedError()
+    ...
 
 
 class ClassificationChangeStopperWrapper:
-    raise NotImplementedError()
+    ...

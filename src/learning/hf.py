@@ -29,9 +29,9 @@ from transformers import (
 from transformers.trainer_utils import TrainOutput
 
 from src.pool import Pool
-from src.querying.core import Querier, RandomQuerier
+from src.querying.queriers import Querier, RandomQuerier
 from src.querying.hf import QuerierWrapper, RandomQuerierWrapper
-from src.stopping.core import Stopper, ContinuousStopper
+from src.stopping.stoppers import Stopper, ContinuousStopper
 from src.stopping.hf import StopperWrapper, ContinuousStopperWrapper
 from src.utils import (
     get_highest_path,
@@ -75,7 +75,6 @@ class IOHelper:
     _stopper_wrapper: ClassVar[str] = "stopper_wrapper.pickle"
     _al_args: ClassVar[str] = "al_args.pickle"
     _io_args: ClassVar[str] = "io_args.pickle"
-
     _iterations: ClassVar[str] = "iterations/"
     _models: ClassVar[str] = "models/"
     _batch: ClassVar[str] = "batch.txt"
@@ -172,7 +171,6 @@ class ActiveLearner(ABC):
     def __init__(
         self,
         dataset: DatasetDict,
-        pool: Pool,
         querier_wrapper: Optional[QuerierWrapper] = None,
         stopper_wrapper: Optional[StopperWrapper] = None,
         al_args: Optional[ALArgs] = None,
@@ -180,7 +178,6 @@ class ActiveLearner(ABC):
         _iteration: int = 0,
     ) -> None:
         self.dataset = dataset
-        self.pool = pool = Pool(len(self.dataset["train"])) if pool is None else pool
         self.querier_wrapper = querier_wrapper
         self.stopper_wrapper = stopper_wrapper
         self.al_args = ALArgs() if al_args is None else al_args
@@ -200,7 +197,7 @@ class ActiveLearner(ABC):
         if self.iteration != 0:
             raise RuntimeError()
 
-        self.batch = self.get_first_batch()
+        self.batch = RandomQuerierWrapper(RandomQuerier(), self.pool)(self.al_args.n_start)
         self._train_one_iteration()
 
     def __iter__(self) -> ActiveLearner:
@@ -219,11 +216,23 @@ class ActiveLearner(ABC):
             raise StopIteration()
 
         self.iteration += 1
-        self.batch = self.query()
+        self.batch = self.querier_wrapper()  # TODO: formalize interface for query_wrapper
         self._train_one_iteration()
 
     def __str__(self) -> str:
         raise NotImplementedError()
+
+    @property
+    def pool(self) -> Pool:
+        return self.querier_wrapper.pool
+
+    @property
+    def labeled(self) -> np.ndarray:
+        return self.pool.labeled
+
+    @property
+    def unlabeled(self) -> np.ndarray:
+        return self.pool.unlabeled
 
     @property
     def n_rows(self) -> int:
@@ -286,51 +295,16 @@ class ActiveLearner(ABC):
                 json.dump(self.test_metrics, handle)
 
     @abstractmethod
-    def get_model(self) -> PreTrainedModel:
+    def get_trainer(self, train_dataset: Optional[Dataset] = None, eval_dataset: Optional[Dataset] = None) -> Trainer:
         ...
 
-    def get_trainer(self) -> Trainer:
-        """Subclass and override to inject custom behavior."""
-        return Trainer(
-            model=self.model,
-            args=self._get_training_args(),
-            train_dataset=self.train_dataset,
-            eval_dataset=self.eval_dataset,
-        )
-
-    def get_training_args(self) -> TrainingArguments:
-        """Subclass and override to inject custom behavior."""
-        return TrainingArguments(output_dir=None)
-
-    def query(self) -> np.ndarray:
-        """Subclass and override to inject custom behavior."""
-        return self.querier_wrapper(self.al_args.n_query)
-
-    def stop(self) -> bool:
-        """Subclass and override to inject custom behavior."""
-        return self.stopper_wrapper()
-
     def callbacks(self) -> None:
-        """Subclass and override to inject custom behavior."""
         self.save_to_disk()
 
-    def get_train_and_eval_datasets(self) -> tuple[Dataset, Optional[Dataset]]:
-        """Subclass and override to inject custom behavior."""
-        return self.dataset["train"].select(self.pool.labeled).train_test_split(self.al_args.validation_set_size)
-
-    def get_first_batch(self) -> np.ndarray:
-        """Subclass and override to inject custom behavior."""
-        return RandomQuerierWrapper(RandomQuerier(), self.pool)(self.al_args.n_start)
-
-    def _get_training_args(self) -> TrainingArguments:
-        training_args = self.get_training_args()
-        training_args.output_dir = self.io_args.models_path(self.iteration)
-        return training_args
-
     def _train_one_iteration(self) -> TrainOutput:
-        self.model = self.get_model()
-        self.train_dataset, self.eval_dataset = self.get_train_and_eval_datasets()
-        self.trainer = self.get_trainer()
+        dataset = self.dataset["train"].select(self.pool.labeled).train_test_split(self.al_args.validation_set_size)
+        self.trainer = self.get_trainer(dataset["train"], dataset["test"])
+        self.trainer.training_args.output_dir = self.io_args.models_path(self.iteration)
         if self.al_args.do_train:
             self.trainer_output: TrainOutput = self.trainer.train()
         if self.al_args.do_test:

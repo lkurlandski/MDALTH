@@ -19,7 +19,7 @@ from transformers import (
 
 from src.learning.hf import ActiveLearner, IOHelper
 from src.pool import Pool
-from src.querying.core import RandomQuerier
+from src.querying.queriers import RandomQuerier
 from src.querying.hf import RandomQuerierWrapper
 
 

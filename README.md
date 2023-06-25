@@ -36,6 +36,8 @@ See DEPS.sh or DEVDEPS.sh if you are a user or a developer, respectively.
     - named entity recognition
 ...
 
+We intend to incorporate torch Named Tensors at a later time when their API is more stable.
+
 ## Similar Libraries
 
 Several Python libraries for active learning have already been proposed, however, have significant disadvantages when compared to MDAL.

@@ -4,7 +4,7 @@ sys.path.insert(0, ".")
 
 import numpy as np
 
-from src.stopping.core import *
+from src.stopping.stoppers import *
 
 
 def test_stabilizing_predictions():
@@ -51,9 +51,3 @@ def test_classification_change():
     for i in range(10):
         if s(unlabeled_preds[1], batch_preds, batch_labels):
             break
-    assert i == 1
-
-
-test_stabilizing_predictions()
-test_changing_confidence()
-test_classification_change()

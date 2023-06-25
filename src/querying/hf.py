@@ -9,18 +9,11 @@ from typing import Any, Optional, Protocol
 from datasets import Dataset
 import numpy as np
 
-# import torch
-# from torch.utils.data import DataLoader
-# from torch.nn.functional import softmax
 from transformers import (
-    DataCollator,
-    PreTrainedModel,
-    PreTrainedTokenizerBase,
     Trainer,
-    TrainingArguments,
 )
 
-from src.querying.core import (
+from src.querying.queriers import (
     Querier,
     RandomQuerier,
     UncertaintyQuerier,
@@ -30,55 +23,55 @@ from src.pool import Pool
 
 __all__ = [
     "QuerierWrapper",
-    "RandomQuerier",
-    "UncertaintyQuerier",
+    "RandomQuerierWrapper",
+    "UncertaintyQuerierWrapper",
 ]
 
 
-class QuerierWrapper(Protocol):
-    def __init__(self, querier: Querier, pool: Pool, *args, **kwds) -> None:
+class QuerierWrapper(ABC):
+    def __init__(self, querier: Querier, dataset: Dataset) -> None:
+        self.querier = querier
+        self.dataset = dataset
+        self.pool = Pool(len(dataset))
+
+    @abstractmethod
+    def __call__(self, trainer: Trainer, n_query: int) -> np.ndarray:
         ...
 
-    def __call__(self, *args, **kwds) -> np.ndarray:
-        ...
+    @classmethod
+    def from_querier(cls, querier: Querier, dataset: Dataset) -> QuerierWrapper:
+        if isinstance(querier, RandomQuerier):
+            return RandomQuerierWrapper(querier, dataset)
+        if isinstance(querier, UncertaintyQuerier):
+            return UncertaintyQuerierWrapper(querier, dataset)
+        raise TypeError()
+
+    @property
+    def labeled(self) -> Optional[np.ndarray]:
+        return self.pool.labeled
+
+    @property
+    def unlabeled(self) -> Optional[np.ndarray]:
+        return self.pool.unlabeled
+
+    def label(self, idx: np.ndarray) -> None:
+        return self.pool.label(idx)
+
+    def unlabel(self, idx: np.ndarray) -> None:
+        return self.pool.unlabel(idx)
 
 
-class RandomQuerierWrapper:
-    def __init__(self, querier: RandomQuerier, pool: Pool) -> None:
-        self.querier = querier
-        self.pool = pool
-
-    def __call__(self, n: int) -> np.ndarray:
-        return self.querier(n, self.pool.unlabeled)
+class RandomQuerierWrapper(QuerierWrapper):
+    def __call__(self, trainer: Trainer, n_query: int) -> np.ndarray:  # pylint: disable=unused-argument
+        return self.querier(n_query, self.pool.unlabeled)
 
 
-class UncertaintyQuerierWrapper:
-    def __init__(
-        self,
-        querier: UncertaintyQuerier,
-        pool: Pool,
-        training_args: Optional[TrainingArguments] = None,
-        data_collator: Optional[DataCollator] = None,
-        tokenizer: Optional[PreTrainedTokenizerBase] = None,
-    ) -> None:
-        self.querier = querier
-        self.pool = pool
-        self.training_args = training_args
-        self.data_collator = data_collator
-        self.tokenizer = tokenizer
-
-    def __call__(self, dataset: Dataset, n: int, model: PreTrainedModel) -> np.ndarray:
-        trainer = self.construct_trainer(model)
-        probas = trainer.predict(dataset.select[self.pool.unlabeled])
-        return self.querier(probas, n)
-
-    def construct_trainer(self, model) -> Trainer:
-        return Trainer(
-            model=model,
-            args=self.training_args,
-            data_collator=self.data_collator,
-            tokenizer=self.tokenizer,
-        )
+class UncertaintyQuerierWrapper(QuerierWrapper):
+    def __call__(self, trainer: Trainer, n_query: int) -> np.ndarray:
+        dataset = self.dataset.select(self.pool.unlabeled)
+        prediction_output = trainer.predict(dataset)
+        classwise_probabilities = prediction_output.predictions
+        return self.querier(n_query, classwise_probabilities)
 
 
 # class BALDQuerierWrapper:

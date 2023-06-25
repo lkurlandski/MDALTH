@@ -9,8 +9,6 @@ from numpy import ma
 from numpy import random
 from scipy.stats import entropy
 
-from src.utils import multi_argmax
-
 
 __all__ = [
     "Querier",
@@ -28,23 +26,23 @@ class Querier(Protocol):
 
 
 class RandomQuerier:
-    def __call__(self, n: int, unlabeled_idx: np.ndarray) -> np.ndarray:
-        return random.choice(unlabeled_idx, size=n, replace=False)
+    def __call__(self, n_query: int, unlabeled_idx: np.ndarray) -> np.ndarray:
+        return random.choice(unlabeled_idx, size=n_query, replace=False)
 
 
 class UncertaintyQuerier:
     def __init__(self, mode: Literal["E", "M", "U"]) -> None:
         self.mode = mode
 
-    def __call__(self, n: int, probs: ClassWiseProbas) -> np.ndarray:
+    def __call__(self, n_query: int, classwise_probs: ClassWiseProbas) -> np.ndarray:
         if self.mode == "E":
-            scores = self.entropy(probs)
+            scores = self.entropy(classwise_probs)
         elif self.mode == "M":
-            scores = self.margin(probs)
+            scores = self.margin(classwise_probs)
         elif self.mode == "U":
-            scores = self.uncertainty(probs)
+            scores = self.uncertainty(classwise_probs)
 
-        return multi_argmax(scores, n_instances=n)
+        return np.flip(scores.argsort())[:n_query]
 
     @staticmethod
     def uncertainty(probs: ClassWiseProbas) -> np.ndarray:
@@ -67,7 +65,7 @@ class UncertaintyQuerier:
 #     def __init__(self, n_drop: int) -> None:
 #         self.n_drop = n_drop
 
-#     def __call__(self, n: int, probs: np.ndarray) -> np.ndarray:
+#     def __call__(self, n_query: int, probs: np.ndarray) -> np.ndarray:
 #         p = probs.mean(0)
 #         entropy_1 = (-p * np.log(p)).sum(1)
 #         entropy_2 = (-probs * np.log(probs)).sum(2).mean(0)
