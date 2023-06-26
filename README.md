@@ -1,6 +1,6 @@
-# MDAL: Modular Deep Active Learning
+# MALTH: Modular Active Learning with Torch and Huggingface
 
-Modular Deep Active Learning (MDAL) is an open-source library for active learning components that supports deep learning. 
+
 
 ## Setup
 

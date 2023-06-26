@@ -2,7 +2,7 @@
 Manage the labeled and unlabeled pools.
 """
 
-import warnings
+from __future__ import annotations
 
 import numpy as np
 from numpy import ma
@@ -25,6 +25,16 @@ class Pool:
     @property
     def unlabeled(self) -> np.ndarray:
         return ma.getdata(self.idx[self.idx.mask])
+
+    @classmethod  # TODO: TEST
+    def from_ma(cls, idx: ma.MaskedArray) -> Pool:
+        pool = cls(len(idx))
+        pool.idx.mask = idx.mask
+
+    @classmethod  # TODO: TEST
+    def from_pools(cls, labeled: np.ndarray, unlabeled: np.ndarray) -> Pool:
+        pool = cls(len(labeled) + len(unlabeled))
+        pool.idx.mask = unlabeled
 
     def label(self, idx: np.ndarray) -> None:
         if not np.issubdtype(idx.dtype, np.integer):

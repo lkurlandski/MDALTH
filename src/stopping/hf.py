@@ -9,7 +9,13 @@ import pickle
 from datasets import Dataset
 from transformers import PreTrainedModel
 
-from src.stopping.stoppers import Stopper
+from src.stopping.stoppers import (
+    Stopper,
+    ContinuousStopper,
+    StabilizingPredictionsStopper,
+    ChangingCondifenceStopper,
+    ClassificationChangeStopper,
+)
 
 __all__ = [
     "StopperWrapper",
@@ -21,43 +27,42 @@ __all__ = [
 
 
 class StopperWrapper(ABC):
-    def __init__(self, stopper: Stopper, *, interrupt: bool = False) -> None:
-        self._stopper = stopper
-        self._interrupt = interrupt
-
-    def __call__(self, model: PreTrainedModel, dataset: Dataset) -> bool:
-        return self.stopper(*self._get_args(model, dataset))
-
-    @property
-    def stopper(self) -> Stopper:
-        return self._stopper
-
-    @property
-    def interrupt(self) -> bool:
-        return self._interrupt
+    def __init__(self, stopper: Stopper, interrupt: bool = False) -> None:
+        self.stopper = stopper
+        self.interrupt = interrupt
 
     @abstractmethod
-    def _get_args(self, model: PreTrainedModel, dataset: Dataset, n: int = 1) -> tuple:
+    def __call__(self, model: PreTrainedModel, dataset: Dataset) -> bool:
         ...
+
+    @classmethod
+    def from_stopper(cls, stopper: Stopper, interrupt: bool = False) -> StopperWrapper:
+        if isinstance(stopper, ContinuousStopper):
+            return ContinuousStopperWrapper(stopper, interrupt)
+        if isinstance(stopper, StabilizingPredictionsStopper):
+            return StabilizingPredictionsStopperWrapper(stopper, interrupt)
+        if isinstance(stopper, ChangingCondifenceStopper):
+            return ChangingCondifenceStopperWrapper(stopper, interrupt)
+        if isinstance(stopper, ClassificationChangeStopper):
+            return ClassificationChangeStopperWrapper(stopper, interrupt)
+        raise TypeError()
 
 
 class ContinuousStopperWrapper(StopperWrapper):
-    def _get_args(self, *args, **kwds) -> tuple:  # pylint: disable=unused-argument
-        return tuple()
+    def __call__(self) -> bool:
+        return False
 
 
 class StabilizingPredictionsStopperWrapper(StopperWrapper):
-    def __init__(self, stopper: Stopper, arg: int, **kwds) -> None:
-        super().__init__(stopper, **kwds)
-        self.arg = arg
-
-    def _get_args(self, model: PreTrainedModel, dataset: Dataset, n: int = 1) -> tuple:
-        return (self.arg,)
+    def __call__(self, model: PreTrainedModel, dataset: Dataset) -> bool:
+        ...
 
 
 class ChangingCondifenceStopperWrapper:
-    ...
+    def __call__(self, model: PreTrainedModel, dataset: Dataset) -> bool:
+        ...
 
 
 class ClassificationChangeStopperWrapper:
-    ...
+    def __call__(self, model: PreTrainedModel, dataset: Dataset) -> bool:
+        ...
