@@ -1,4 +1,4 @@
-"""Stopping algorithms for active learning.
+"""Implements the bare bones logic behind stopping criteria.
 """
 
 from collections import deque
@@ -12,7 +12,7 @@ __all__ = [
     "Stopper",
     "ContinuousStopper",
     "StabilizingPredictionsStopper",
-    "ChangingCondifenceStopper",
+    "ChangingConfidenceStopper",
     "ClassificationChangeStopper",
 ]
 
@@ -28,6 +28,10 @@ class ContinuousStopper:
 
 
 class StabilizingPredictionsStopper:
+    """Stops based on stabilizing classification predictions over a 'stop set'.
+    
+    See bloodgood2009method.
+    """
     def __init__(self, windows: int, threshold: float) -> None:
         self.windows = windows
         self.threshold = threshold
@@ -53,7 +57,11 @@ class StabilizingPredictionsStopper:
         return False
 
 
-class ChangingCondifenceStopper:
+class ChangingConfidenceStopper:
+    """Stops based on changing confidence over a 'stop set'.
+    
+    See vlachos2008stopping.
+    """
     def __init__(self, windows: int, mode: Literal["D", "N"]) -> None:
         self.windows = windows
         self.mode = mode
@@ -73,20 +81,56 @@ class ChangingCondifenceStopper:
         return False
 
 
-class ClassificationChangeStopper:
-    def __init__(self, threshold: float, increment: float) -> None:
+class MaxConfidenceStopper:
+    """Stops AL when the batch uncertainty is below a threshold.
+    
+    See zhu2007active.
+    """
+    def __init__(self, threshold: float) -> None:
         self.threshold = threshold
-        self.threshold_increment = increment
-        self.prev_unlabeled_preds = None
 
-    def __call__(self, unlabeled_preds: np.ndarray, batch_preds: np.ndarray, batch_labels: np.ndarray) -> bool:
-        if self.prev_unlabeled_preds is None:
+    def __call__(self, batch_probs: np.ndarray) -> bool:
+        return np.all(np.max(batch_probs, axis=1) > self.threshold)
+
+
+class MinErrorStopper:
+    """Stops AL when the batch accuracy is above a threshold.
+    
+    See zhu2007active.
+    """
+    def __init__(self, threshold: float) -> None:
+        self.threshold = threshold
+    
+    def __call__(self, batch_preds: np.ndarray, batch_labels: np.ndarray) -> bool:
+        return accuracy_score(batch_preds, batch_labels) > self.threshold
+
+
+class OverallUncertaintyStopper:
+    """Stops when there is low uncertainty over the unlabeled examples.
+    
+    See zhu2008multi.
+    """
+    def __init__(self, threshold: float) -> None:
+        self.threshold = threshold
+
+    def __call__(self, unlabeled_probas: np.ndarray) -> bool:
+        return np.mean(np.max(unlabeled_probas, axis=1)) < self.threshold
+
+
+class ClassificationChangeStopper:
+    """Stops when there is not classification change on the unlabeled examples.
+    
+    See zhu2008multi.
+    """
+    def __init__(self, windows: int) -> None:
+        self.windows = windows
+        self.unlabeled_preds = deque(maxlen=windows)
+    
+    def __call__(self, unlabeled_preds: np.ndarray) -> bool:
+        self.unlabeled_preds.append(unlabeled_preds)
+        if len(self.unlabeled_preds) < self.windows:
             return False
-
-        if accuracy_score(batch_preds, batch_labels) > self.threshold:
-            if np.array_equal(self.prev_unlabeled_preds, unlabeled_preds):
-                return True
-            self.threshold += self.threshold_increment
-
-        self.prev_unlabeled_preds = unlabeled_preds
-        return False
+        for i in range(self.windows - 1):
+            if not np.array_equal(self.unlabeled_preds[i], self.unlabeled_preds[i + 1]):
+                return False
+        return True

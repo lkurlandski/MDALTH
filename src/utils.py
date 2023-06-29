@@ -9,6 +9,14 @@ from typing import Any
 import numpy as np
 
 
+def probs_to_confs(probs: np.ndarray) -> np.ndarray:
+    return np.max(probs, axis=1)
+
+
+def probs_to_preds(probs: np.ndarray) -> np.ndarray:
+    return np.argmax(probs, axis=1)
+
+
 def save_with_pickle(path: Path, obj: Any, **kwds) -> None:
     with open(path, "wb") as handle:
         pickle.dump(obj, handle, **kwds)

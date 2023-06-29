@@ -7,13 +7,15 @@ from pathlib import Path
 import pickle
 
 from datasets import Dataset
-from transformers import PreTrainedModel
+import numpy as np
+from numpy import random
+from transformers import Trainer
 
 from src.stopping.stoppers import (
     Stopper,
     ContinuousStopper,
     StabilizingPredictionsStopper,
-    ChangingCondifenceStopper,
+    ChangingConfidenceStopper,
     ClassificationChangeStopper,
 )
 
@@ -27,24 +29,24 @@ __all__ = [
 
 
 class StopperWrapper(ABC):
-    def __init__(self, stopper: Stopper, interrupt: bool = False) -> None:
+    def __init__(self, stopper: Stopper, interrupt: bool) -> None:
         self.stopper = stopper
         self.interrupt = interrupt
 
     @abstractmethod
-    def __call__(self, model: PreTrainedModel, dataset: Dataset) -> bool:
+    def __call__(self, trainer: Trainer, dataset: Dataset) -> bool:
         ...
 
     @classmethod
-    def from_stopper(cls, stopper: Stopper, interrupt: bool = False) -> StopperWrapper:
+    def from_stopper(cls, stopper: Stopper, interrupt: bool, **kwds) -> StopperWrapper:
         if isinstance(stopper, ContinuousStopper):
-            return ContinuousStopperWrapper(stopper, interrupt)
+            return ContinuousStopperWrapper(stopper, interrupt, **kwds)
         if isinstance(stopper, StabilizingPredictionsStopper):
-            return StabilizingPredictionsStopperWrapper(stopper, interrupt)
-        if isinstance(stopper, ChangingCondifenceStopper):
-            return ChangingCondifenceStopperWrapper(stopper, interrupt)
+            return StabilizingPredictionsStopperWrapper(stopper, interrupt, **kwds)
+        if isinstance(stopper, ChangingConfidenceStopper):
+            return ChangingCondifenceStopperWrapper(stopper, interrupt, **kwds)
         if isinstance(stopper, ClassificationChangeStopper):
-            return ClassificationChangeStopperWrapper(stopper, interrupt)
+            return ClassificationChangeStopperWrapper(stopper, interrupt, **kwds)
         raise TypeError()
 
 
@@ -54,8 +56,18 @@ class ContinuousStopperWrapper(StopperWrapper):
 
 
 class StabilizingPredictionsStopperWrapper(StopperWrapper):
-    def __call__(self, model: PreTrainedModel, dataset: Dataset) -> bool:
-        ...
+    def __init__(
+        self,
+        stopper: StabilizingPredictionsStopper,
+        interrupt: bool,
+        stop_set_idx: np.ndarray,
+    ) -> None:
+        super().__init__(stopper, interrupt)
+        self.stop_set_idx = stop_set_idx
+
+    def __call__(self, trainer: Trainer) -> bool:
+        stop_set_preds = trainer
+        return self.stopper()
 
 
 class ChangingCondifenceStopperWrapper:

@@ -287,6 +287,7 @@ class ALLearner(ABC):
         if self.iteration > len(self):
             raise StopIteration()
 
+        self.stopper_wrapper()
         self.iteration += 1
         self.batch = self.querier_wrapper()
         self._train_one_iteration()

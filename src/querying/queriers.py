@@ -17,24 +17,27 @@ __all__ = [
 ]
 
 
-ClassWiseProbas: TypeAlias = np.ndarray
-
-
 class Querier(Protocol):
     def __call__(self, *args, **kwds) -> np.ndarray:
         ...
 
 
 class RandomQuerier:
+    """Selects random examples from the unlabeled set.
+    """
     def __call__(self, n_query: int, unlabeled_idx: np.ndarray) -> np.ndarray:
         return random.choice(unlabeled_idx, size=n_query, replace=False)
 
 
 class UncertaintyQuerier:
+    """Selects the most uncertain examples from the unlabeled set.
+    
+    See settles2012active.
+    """
     def __init__(self, mode: Literal["E", "M", "U"]) -> None:
         self.mode = mode
 
-    def __call__(self, n_query: int, classwise_probs: ClassWiseProbas) -> np.ndarray:
+    def __call__(self, n_query: int, classwise_probs: np.ndarray) -> np.ndarray:
         if self.mode == "E":
             scores = self.entropy(classwise_probs)
         elif self.mode == "M":
@@ -45,11 +48,11 @@ class UncertaintyQuerier:
         return np.flip(scores.argsort())[:n_query]
 
     @staticmethod
-    def uncertainty(probs: ClassWiseProbas) -> np.ndarray:
+    def uncertainty(probs: np.ndarray) -> np.ndarray:
         return 1 - np.max(probs, axis=1)
 
     @staticmethod
-    def margin(probs: ClassWiseProbas) -> np.ndarray:
+    def margin(probs: np.ndarray) -> np.ndarray:
         if probs.shape[1] == 1:
             return np.zeros(shape=(probs.shape[0],))
         part = np.partition(-probs, 1, axis=1)
@@ -57,7 +60,7 @@ class UncertaintyQuerier:
         return margin
 
     @staticmethod
-    def entropy(probs: ClassWiseProbas) -> np.ndarray:
+    def entropy(probs: np.ndarray) -> np.ndarray:
         return np.transpose(entropy(np.transpose(probs)))
 
 
