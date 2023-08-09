@@ -16,8 +16,8 @@ source ~/anaconda3/etc/profile.d/conda.sh
 conda activate HuggingfaceActiveLearning
 export CUDA_VISIBLE_DEVICES=
 
-python examples/nlp.py \
---evaluate \
+python ./run/nlp.py \
+--analyze \
 --subset=1000 \
 --dataset="imdb" \
 --pretrained_model_name_or_path="distilbert-base-uncased" \

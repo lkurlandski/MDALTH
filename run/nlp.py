@@ -1,5 +1,5 @@
 """
-Main file for the mdalt package.
+Run active learning experiments for text classification.
 """
 
 from argparse import ArgumentParser
@@ -30,6 +30,7 @@ from transformers import (
 import torch
 from tqdm import tqdm
 
+from mdalt.analysis import Analyzer
 from mdalt.cfg import BR
 from mdalt.helpers import IOHelper, Pool
 from mdalt.learning import validate, Config, IOHelper, Learner, Evaluator, TrainerFactory
@@ -38,6 +39,7 @@ from mdalt.learning import validate, Config, IOHelper, Learner, Evaluator, Train
 parser = ArgumentParser()
 parser.add_argument("--learn", action="store_true")
 parser.add_argument("--evaluate", action="store_true")
+parser.add_argument("--analyze", action="store_true")
 parser.add_argument("--subset", type=int, default=-1)
 parser.add_argument("--dataset", type=str, default="imdb")
 parser.add_argument("--pretrained_model_name_or_path", type=str, default="distilbert-base-uncased")
@@ -49,6 +51,7 @@ args = parser.parse_args()
 
 LEARN = args.learn
 EVALUATE = args.evaluate
+ANALYZE = args.analyze
 SUBSET = args.subset if args.subset > 0 else None
 DATASET = args.dataset
 PRETRAINED_MODEL_NAME_OR_PATH = args.pretrained_model_name_or_path
@@ -118,7 +121,7 @@ trainer_fact = TrainerFactory(
     data_collator=data_collator,
     tokenizer=tokenizer,
     callbacks=callbacks,
-    metric=compute_metrics,
+    compute_metrics=compute_metrics,
 )
 
 print(f"{dataset=}\n", BR)
@@ -149,3 +152,8 @@ if EVALUATE:
     evaluator = evaluator()
     for model, results in tqdm(evaluator):
         ...
+
+if ANALYZE:
+    analyzer = Analyzer(io_helper)
+    fig, ax = analyzer()
+    fig.savefig(io_helper.learning_curve_path, dpi=400)

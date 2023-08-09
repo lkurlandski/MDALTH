@@ -63,6 +63,8 @@ class IOHelper:
             | - io_helper.pickle
     """
 
+    _analysis: ClassVar[str] = "analysis/"
+    _learning_curve: ClassVar[str] = "learning_curve.png"
     _meta: ClassVar[str] = "meta/"
     _dataset: ClassVar[str] = "dataset/"
     _tr_dataset: ClassVar[str] = "tr/"
@@ -99,6 +101,14 @@ class IOHelper:
     @property
     def overwrite(self) -> bool:
         return self._overwrite
+
+    @property
+    def analysis_path(self) -> Path:
+        return self.root_path / self._analysis
+
+    @property
+    def learning_curve_path(self) -> Path:
+        return self.analysis_path / self._learning_curve
 
     @property
     def meta_path(self) -> Path:
@@ -162,6 +172,7 @@ class IOHelper:
         self.root_path.mkdir(parents=parents, exist_ok=exist_ok)
         self.iterations_path.mkdir(exist_ok=exist_ok)
         self.meta_path.mkdir(exist_ok=exist_ok)
+        self.analysis_path.mkdir(exist_ok=exist_ok)
         self.dataset_path.mkdir(exist_ok=exist_ok)
         self.tr_dataset_path.mkdir(exist_ok=exist_ok)
         self.ts_dataset_path.mkdir(exist_ok=exist_ok)
