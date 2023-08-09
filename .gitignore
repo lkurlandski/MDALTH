@@ -162,3 +162,5 @@ cython_debug/
 #
 my_awesome_model
 .vscode/
+output/*
+

@@ -6,8 +6,8 @@ import numpy as np
 from numpy import random
 from transformers import Trainer
 
-from src.querying.hf import *
-from src.querying.queriers import *
+from mdalt.querying.hf import *
+from mdalt.querying.queriers import *
 
 from tests.utils import hf
 

@@ -10,30 +10,17 @@ from numpy import random
 from scipy.stats import entropy
 
 
-__all__ = [
-    "Querier",
-    "RandomQuerier",
-    "UncertaintyQuerier",
-]
-
-
 class Querier(Protocol):
     def __call__(self, *args, **kwds) -> np.ndarray:
         ...
 
 
 class RandomQuerier:
-    """Selects random examples from the unlabeled set.
-    """
     def __call__(self, n_query: int, unlabeled_idx: np.ndarray) -> np.ndarray:
         return random.choice(unlabeled_idx, size=n_query, replace=False)
 
 
 class UncertaintyQuerier:
-    """Selects the most uncertain examples from the unlabeled set.
-    
-    See settles2012active.
-    """
     def __init__(self, mode: Literal["E", "M", "U"]) -> None:
         self.mode = mode
 

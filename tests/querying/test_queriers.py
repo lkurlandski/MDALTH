@@ -4,7 +4,7 @@ sys.path.insert(0, ".")
 
 import numpy as np
 
-from src.querying.queriers import *
+from mdalt.querying.queriers import *
 
 
 def test_RandomQuerier():

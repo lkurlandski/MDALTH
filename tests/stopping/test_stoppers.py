@@ -4,7 +4,7 @@ sys.path.insert(0, ".")
 
 import numpy as np
 
-from src.stopping.stoppers import *
+from mdalt.stopping.stoppers import *
 
 
 def test_stabilizing_predictions():

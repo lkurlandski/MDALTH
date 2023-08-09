@@ -1,2 +1,0 @@
-"""Exceptions for the project.
-"""
