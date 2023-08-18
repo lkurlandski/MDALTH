@@ -123,16 +123,16 @@ class TrainerFactory:
         model_init = None if model else self.model_init
         return Trainer(
             model,
-            self.args,
-            self.data_collator,
+            deepcopy(self.args),
+            deepcopy(self.data_collator),
             train_dataset,
             eval_dataset,
-            self.tokenizer,
+            deepcopy(self.tokenizer),
             model_init,
-            self.compute_metrics,
-            self.callbacks,
-            self.optimizers,
-            self.preprocess_logits_for_metrics,
+            deepcopy(self.compute_metrics),
+            deepcopy(self.callbacks),
+            deepcopy(self.optimizers),
+            deepcopy(self.preprocess_logits_for_metrics),
         )
 
 

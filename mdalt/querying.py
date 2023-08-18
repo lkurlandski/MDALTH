@@ -1,4 +1,5 @@
-"""Query algorithms for active learning.
+"""
+Query algorithms for active learning.
 """
 
 from abc import abstractmethod, ABC
