@@ -3,40 +3,24 @@ Active learning loop.
 """
 
 from __future__ import annotations
-from abc import abstractmethod, ABC
-from collections.abc import Callable
-from copy import deepcopy
-from dataclasses import dataclass
 import json
-from pathlib import Path
-from pprint import pformat, pprint
+from pprint import pformat
 import shutil
-import sys
-import tempfile
-from typing import ClassVar, Optional
-import warnings
+from typing import Optional
 
+from datasets import Dataset
 import numpy as np
-from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LambdaLR
-
-from datasets import Dataset, DatasetDict
 from transformers import (
     AutoModelForSequenceClassification,
-    DataCollator,
-    EvalPrediction,
     PreTrainedModel,
-    PreTrainedTokenizerBase,
     Trainer,
     TrainingArguments,
-    TrainerCallback,
 )
 from transformers.trainer_utils import TrainOutput
 
-from mdalt.helpers import Pool, IOHelper
-from mdalt.querying import RandomQuerier
-from mdalt.utils import get_highest_path, load_with_pickle, save_with_pickle
+from mdalth.helpers import IOHelper, Pool, TrainerFactory
+from mdalth.querying import RandomQuerier
+from mdalth.utils import load_with_pickle, save_with_pickle
 
 
 def validate(training_args: TrainingArguments) -> None:
@@ -91,49 +75,6 @@ class Config:
         if isinstance(self._validation_set_size, float) and num_labeled is not None:
             return int(self._validation_set_size * num_labeled)
         raise RuntimeError()
-
-
-class TrainerFactory:
-    def __init__(
-        self,
-        model_init: Optional[Callable[[], PreTrainedModel]] = None,
-        args: Optional[TrainingArguments] = None,
-        data_collator: Optional[DataCollator] = None,
-        tokenizer: Optional[PreTrainedTokenizerBase] = None,
-        compute_metrics: Optional[Callable[[EvalPrediction], dict]] = None,
-        callbacks: Optional[list[TrainerCallback]] = None,
-        optimizers: tuple[Optimizer, LambdaLR] = (None, None),
-        preprocess_logits_for_metrics: Optional[Callable[[Tensor, Tensor], Tensor]] = None,
-    ) -> None:
-        self.model_init = model_init
-        self.args = args
-        self.data_collator = data_collator
-        self.tokenizer = tokenizer
-        self.compute_metrics = compute_metrics
-        self.callbacks = callbacks
-        self.optimizers = optimizers
-        self.preprocess_logits_for_metrics = preprocess_logits_for_metrics
-
-    def __call__(
-        self,
-        train_dataset: Optional[Dataset] = None,
-        eval_dataset: Optional[Dataset] = None,
-        model: Optional[PreTrainedModel] = None,
-    ) -> Trainer:
-        model_init = None if model else self.model_init
-        return Trainer(
-            model,
-            deepcopy(self.args),
-            deepcopy(self.data_collator),
-            train_dataset,
-            eval_dataset,
-            deepcopy(self.tokenizer),
-            model_init,
-            deepcopy(self.compute_metrics),
-            deepcopy(self.callbacks),
-            deepcopy(self.optimizers),
-            deepcopy(self.preprocess_logits_for_metrics),
-        )
 
 
 class Learner:
@@ -191,6 +132,7 @@ class Learner:
     def num_rows(self) -> int:
         return self.dataset.num_rows
 
+    # TODO: implement checkpointing system.
     # @classmethod
     # def load_from_disk(cls, output_dir: Path, iteration: Optional[int] = None) -> Learner:
     #     io_helper = IOHelper(output_dir)
@@ -291,6 +233,7 @@ class Evaluator:
     def ts_num_rows(self) -> int:
         return self.ts_dataset.num_rows
 
+    # TODO: implement checkpointing system.
     # @classmethod
     # def load_from_disk(cls, output_dir: Path, iteration: Optional[int] = None) -> Evaluator:
     #     io_helper = IOHelper(output_dir)

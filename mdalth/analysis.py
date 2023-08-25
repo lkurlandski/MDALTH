@@ -11,7 +11,7 @@ from matplotlib.axes import Axes
 import numpy as np
 import pandas as pd
 
-from mdalt.helpers import IOHelper
+from mdalth.helpers import IOHelper
 
 
 class Analyzer:

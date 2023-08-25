@@ -2,11 +2,9 @@
 Query algorithms for active learning.
 """
 
-from abc import abstractmethod, ABC
-from typing import Literal, Optional, Protocol, TypeAlias
+from typing import Literal, Protocol
 
 import numpy as np
-from numpy import ma
 from numpy import random
 from scipy.stats import entropy
 
@@ -32,7 +30,6 @@ class UncertaintyQuerier:
             scores = self.margin(classwise_probs)
         elif self.mode == "U":
             scores = self.uncertainty(classwise_probs)
-
         return np.flip(scores.argsort())[:n_query]
 
     @staticmethod
@@ -50,15 +47,3 @@ class UncertaintyQuerier:
     @staticmethod
     def entropy(probs: np.ndarray) -> np.ndarray:
         return np.transpose(entropy(np.transpose(probs)))
-
-
-# class BALDQuerier(Querier):
-#     def __init__(self, n_drop: int) -> None:
-#         self.n_drop = n_drop
-
-#     def __call__(self, n_query: int, probs: np.ndarray) -> np.ndarray:
-#         p = probs.mean(0)
-#         entropy_1 = (-p * np.log(p)).sum(1)
-#         entropy_2 = (-probs * np.log(probs)).sum(2).mean(0)
-#         u = entropy_2 - entropy_1
-#         return self.unlabeled[u.sort()[1][:n]]

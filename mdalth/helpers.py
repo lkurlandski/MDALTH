@@ -3,17 +3,14 @@ Helper classes.
 """
 
 from __future__ import annotations
-from abc import abstractmethod, ABC
-from collections.abc import Callable, Collection
-from dataclasses import dataclass
-import json
+from collections.abc import Callable
+from copy import deepcopy
 from pathlib import Path
-import pickle
-from pprint import pformat, pprint
+from pprint import pformat
 import tempfile
-from typing import Any, ClassVar, Optional
+from typing import ClassVar, Optional
 
-from datasets import Dataset, DatasetDict
+from datasets import Dataset
 import numpy as np
 from numpy import ma
 from torch import Tensor
@@ -28,7 +25,6 @@ from transformers import (
     TrainingArguments,
     TrainerCallback,
 )
-from transformers.trainer_utils import TrainOutput
 
 from mdalt.utils import is_directory_empty
 
@@ -197,23 +193,17 @@ class IOHelper:
         )
 
 
-class BasePool:
+class PoolIdx:
+    """Manages the indices of the active learning pools."""
+
     def __init__(self, n: int) -> None:
-        self._idx = ma.array(np.arange(n, dtype=int), mask=True)
+        self.idx: ma.MaskedArray = ma.array(np.arange(n, dtype=int), mask=True)
 
     def __len__(self) -> int:
         return len(self.idx)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(\n{pformat(vars(self))}\n)"
-
-    @property
-    def idx(self) -> ma.MaskedArray:
-        return self._idx
-
-    @idx.setter
-    def idx(self, idx: ma.MaskedArray) -> None:
-        self._idx = idx
 
     @property
     def labeled_idx(self) -> np.ndarray:
@@ -230,7 +220,7 @@ class BasePool:
         return pool
 
     @classmethod
-    def from_pools(cls, labeled_idx: np.ndarray, unlabeled_idx: np.ndarray) -> BasePool:
+    def from_pools(cls, labeled_idx: np.ndarray, unlabeled_idx: np.ndarray) -> PoolIdx:
         pool = cls(len(labeled_idx) + len(unlabeled_idx))
         pool.idx.mask = unlabeled_idx
         return pool
@@ -246,38 +236,102 @@ class BasePool:
         self.idx.mask[idx] = True
 
 
-class Pool(BasePool):
+class Pool:
+    """Provide PoolIdx support around a Dataset object."""
+
     def __init__(self, dataset: Dataset) -> None:
-        super().__init__(len(dataset))
-        self._dataset = dataset
+        self.pool = PoolIdx(len(dataset))
+        self.dataset = dataset
 
     @property
-    def dataset(self) -> Dataset:
-        return self._dataset
+    def idx(self) -> ma.MaskedArray:
+        return self.pool.idx
 
-    @dataset.setter
-    def dataset(self, dataset: Dataset) -> None:
-        self._dataset = dataset
+    @property
+    def labeled_idx(self) -> np.ndarray:
+        return self.pool.labeled_idx
+
+    @property
+    def unlabeled_idx(self) -> np.ndarray:
+        return self.pool.unlabeled_idx
 
     @property
     def labeled(self) -> Dataset:
-        return self.dataset.select(super().labeled_idx)
+        return self.dataset.select(self.labeled_idx)
 
     @property
     def unlabeled(self) -> Dataset:
-        return self.dataset.select(super().unlabeled_idx)
+        return self.dataset.select(self.unlabeled_idx)
 
     @classmethod
-    def from_ma(cls, idx: ma.MaskedArray, dataset: Dataset) -> Pool:
+    def from_ma(cls, dataset: Dataset, idx: ma.MaskedArray) -> Pool:
         pool = cls(dataset)
         pool.idx.mask = idx.mask
         return pool
 
     @classmethod
     def from_pools(
-        cls, labeled_idx: np.ndarray, unlabeled_idx: np.ndarray, dataset: Dataset
+        cls,
+        dataset: Dataset,
+        labeled_idx: Optional[np.ndarray],
+        unlabeled_idx: Optional[np.ndarray],
     ) -> Pool:
+        if labeled_idx is None and unlabeled_idx is None:
+            raise ValueError("At least one of labeled_idx and unlabeled_idx must be provided.")
         pool = cls(dataset)
-        pool.label(labeled_idx)
-        pool.unlabel(unlabeled_idx)
+        if labeled_idx is not None:
+            pool.label(labeled_idx)
+        if unlabeled_idx is not None:
+            pool.unlabel(unlabeled_idx)
         return pool
+
+    def label(self, idx: np.ndarray) -> None:
+        self.pool.label(idx)
+
+    def unlabel(self, idx: np.ndarray) -> None:
+        self.pool.unlabel(idx)
+
+
+class TrainerFactory:
+    """Create Trainer objects with a consistent configuration."""
+
+    def __init__(
+        self,
+        model_init: Optional[Callable[[], PreTrainedModel]] = None,
+        args: Optional[TrainingArguments] = None,
+        data_collator: Optional[DataCollator] = None,
+        tokenizer: Optional[PreTrainedTokenizerBase] = None,
+        compute_metrics: Optional[Callable[[EvalPrediction], dict]] = None,
+        callbacks: Optional[list[TrainerCallback]] = None,
+        optimizers: tuple[Optimizer, LambdaLR] = (None, None),
+        preprocess_logits_for_metrics: Optional[Callable[[Tensor, Tensor], Tensor]] = None,
+    ) -> None:
+        self.model_init = model_init
+        self.args = args
+        self.data_collator = data_collator
+        self.tokenizer = tokenizer
+        self.compute_metrics = compute_metrics
+        self.callbacks = callbacks
+        self.optimizers = optimizers
+        self.preprocess_logits_for_metrics = preprocess_logits_for_metrics
+
+    def __call__(
+        self,
+        train_dataset: Optional[Dataset] = None,
+        eval_dataset: Optional[Dataset] = None,
+        model: Optional[PreTrainedModel] = None,
+    ) -> Trainer:
+        model_init = None if model else self.model_init
+        return Trainer(
+            model,
+            deepcopy(self.args),
+            deepcopy(self.data_collator),
+            train_dataset,
+            eval_dataset,
+            deepcopy(self.tokenizer),
+            model_init,
+            deepcopy(self.compute_metrics),
+            deepcopy(self.callbacks),
+            deepcopy(self.optimizers),
+            deepcopy(self.preprocess_logits_for_metrics),
+        )

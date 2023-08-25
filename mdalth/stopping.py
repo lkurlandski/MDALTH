@@ -6,7 +6,7 @@ from collections import deque
 from typing import Literal, Protocol
 
 import numpy as np
-from sklearn.metrics import accuracy_score, cohen_kappa_score
+from sklearn.metrics import cohen_kappa_score
 
 
 class Stopper(Protocol):
@@ -63,42 +63,3 @@ class ChangingConfidence:
         if self.mode == "N" and all(c <= prv for c in self.conf_scores):
             return True
         return False
-
-
-class MaxConfidence:
-    def __init__(self, threshold: float) -> None:
-        self.threshold = threshold
-
-    def __call__(self, batch_probs: np.ndarray) -> bool:
-        return np.all(np.max(batch_probs, axis=1) > self.threshold)
-
-
-class MinError:
-    def __init__(self, threshold: float) -> None:
-        self.threshold = threshold
-    
-    def __call__(self, batch_preds: np.ndarray, batch_labels: np.ndarray) -> bool:
-        return accuracy_score(batch_preds, batch_labels) > self.threshold
-
-
-class OverallUncertainty:
-    def __init__(self, threshold: float) -> None:
-        self.threshold = threshold
-
-    def __call__(self, unlabeled_probas: np.ndarray) -> bool:
-        return np.mean(np.max(unlabeled_probas, axis=1)) < self.threshold
-
-
-class ClassificationChange:
-    def __init__(self, windows: int) -> None:
-        self.windows = windows
-        self.unlabeled_preds = deque(maxlen=windows)
-    
-    def __call__(self, unlabeled_preds: np.ndarray) -> bool:
-        self.unlabeled_preds.append(unlabeled_preds)
-        if len(self.unlabeled_preds) < self.windows:
-            return False
-        for i in range(self.windows - 1):
-            if not np.array_equal(self.unlabeled_preds[i], self.unlabeled_preds[i + 1]):
-                return False
-        return True

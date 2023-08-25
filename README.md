@@ -42,7 +42,7 @@ conda install -y environment,yml
 
 ## Release
 
-Our number one goal at the moment is to implement as many stopping methods and query algorithms for classification as possible. Once we feel we are ready, our 1.0 version will provide a stable, simple, and well-documented API for these tools.
+Our number one goal at the moment is to implement as many stopping methods and query algorithms for classification as possible. Once we feel we are ready, our 1.0 version will provide a stable, simple, and well-documented API for these tools. Until then, users will have to subclass the Learner and write their own interface to communicate between the stopping/querying algorithms and the mdalth Learner.
 
 ## Similar Libraries
 
@@ -74,4 +74,9 @@ BADGE is forked from deep-active-learning. While it implements some newer querie
 
 ## Contributing
 
+Please consider suggestions from pylint and the associated .pylintrc file. Autoformat with black --line-length=100.
 
+## TODO
+- checkpointing system for the Learner and Evaluator
+- improve file storage by serializing objects as json instead of pickle
+- store the Trainer's log_history for each iteration

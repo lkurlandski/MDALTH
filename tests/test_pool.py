@@ -4,7 +4,7 @@ sys.path.insert(0, ".")
 
 import numpy as np
 
-from mdalt.pool import Pool
+from mdalth.pool import Pool
 
 
 p = Pool(10)

@@ -16,12 +16,12 @@ from datasets import load_dataset
 import evaluate
 import numpy as np
 from transformers import (
+    logging,
     AutoModelForSequenceClassification,
     AutoTokenizer,
     DataCollator,
     DataCollatorWithPadding,
     EarlyStoppingCallback,
-    logging,
     PreTrainedModel,
     PreTrainedTokenizerBase,
     Trainer,
@@ -30,10 +30,10 @@ from transformers import (
 import torch
 from tqdm import tqdm
 
-from mdalt.analysis import Analyzer
-from mdalt.cfg import BR
-from mdalt.helpers import IOHelper, Pool
-from mdalt.learning import validate, Config, IOHelper, Learner, Evaluator, TrainerFactory
+from mdalth.analysis import Analyzer
+from mdalth.cfg import BR
+from mdalth.helpers import IOHelper, Pool
+from mdalth.learning import validate, Config, IOHelper, Learner, Evaluator, TrainerFactory
 
 
 parser = ArgumentParser()
@@ -44,6 +44,7 @@ parser.add_argument("--subset", type=int, default=-1)
 parser.add_argument("--dataset", type=str, default="imdb", choices=["imdb", "ag_news"])
 parser.add_argument("--pretrained_model_name_or_path", type=str, default="distilbert-base-uncased")
 parser.add_argument("--metric", type=str, default="accuracy")
+parser.add_argument("--output_root", type=str, default="./output")
 parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--verbosity", type=int, choices=[10, 20, 30, 40, 50], default=logging.WARNING)
 args = parser.parse_args()
@@ -56,6 +57,7 @@ SUBSET = args.subset if args.subset > 0 else None
 DATASET = args.dataset
 PRETRAINED_MODEL_NAME_OR_PATH = args.pretrained_model_name_or_path
 METRIC = args.metric
+OUTPUT_ROOT = args.output_root
 SEED = args.seed
 VERBOSITY = args.verbosity
 
@@ -114,7 +116,7 @@ callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
 
 pool = Pool(dataset["train"])
 config = Config(n_rows=dataset["train"].num_rows)
-io_helper = IOHelper(Path("./output"), overwrite=True)
+io_helper = IOHelper(Path(OUTPUT_ROOT), overwrite=True)
 trainer_fact = TrainerFactory(
     model_init=model_init,
     args=training_args,

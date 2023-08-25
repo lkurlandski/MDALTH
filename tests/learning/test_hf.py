@@ -17,10 +17,10 @@ from transformers import (
     TrainingArguments,
 )
 
-from mdalt.learning.hf import ActiveLearner, IOHelper
-from mdalt.pool import Pool
-from mdalt.querying.queriers import RandomQuerier
-from mdalt.querying.hf import RandomQuerierWrapper
+from mdalth.learning.hf import ActiveLearner, IOHelper
+from mdalth.pool import Pool
+from mdalth.querying.queriers import RandomQuerier
+from mdalth.querying.hf import RandomQuerierWrapper
 
 
 SUBSET = 500
