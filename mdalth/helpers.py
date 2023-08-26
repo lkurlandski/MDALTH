@@ -26,7 +26,7 @@ from transformers import (
     TrainerCallback,
 )
 
-from mdalt.utils import is_directory_empty
+from mdalth.utils import is_directory_empty
 
 
 class IOHelper:
@@ -307,7 +307,8 @@ class TrainerFactory:
         preprocess_logits_for_metrics: Optional[Callable[[Tensor, Tensor], Tensor]] = None,
     ) -> None:
         self.model_init = model_init
-        self.args = args
+        args = TrainingArguments() if args is None else args
+        self.args_fact = TrainingArgumentsFactory(args)
         self.data_collator = data_collator
         self.tokenizer = tokenizer
         self.compute_metrics = compute_metrics
@@ -324,7 +325,7 @@ class TrainerFactory:
         model_init = None if model else self.model_init
         return Trainer(
             model,
-            deepcopy(self.args),
+            self.args_fact(train_dataset, eval_dataset, model),
             deepcopy(self.data_collator),
             train_dataset,
             eval_dataset,
@@ -335,3 +336,43 @@ class TrainerFactory:
             deepcopy(self.optimizers),
             deepcopy(self.preprocess_logits_for_metrics),
         )
+
+
+class TrainingArgumentsFactory:
+    """Create TrainingArguments objects with a consistent configuration.
+
+    Notes
+    -----
+        - The motivation for this is that we need to ensure there are enough samples
+        for the train and evaluation batches at each iteration, else huggingface's
+        Trainer will raise an error.
+        - However, this may not work as expected because
+        TrainingArguments.__init__ will not be called when
+        TrainingArgumentsFactory.__call__ is called.
+        - Therefore, we may have to create a custom TrainingArguments class that
+        inherits from TrainingArguments or pass in keyword arguments for the
+        TrainingArguments constructor instead of a TrainingArguments object,
+        then create a new TrainingArguments within __call__.
+    """
+
+    def __init__(self, args: TrainingArguments) -> None:
+        self.args = args
+        assert not self.args.resume_from_checkpoint, "resume_from_checkpoint not supported."
+        assert self.args.load_best_model_at_end, "load_best_model_at_end must be True."
+
+    def __call__(
+        self,
+        train_dataset: Optional[Dataset] = None,
+        eval_dataset: Optional[Dataset] = None,
+        model: Optional[PreTrainedModel] = None,  # pylint: disable=unused-argument
+    ) -> TrainingArguments:
+        args = deepcopy(self.args)
+        if train_dataset is not None:
+            args.per_device_train_batch_size = min(
+                self.args.per_device_train_batch_size, len(train_dataset)
+            )
+        if eval_dataset is not None:
+            args.per_device_eval_batch_size = min(
+                self.args.per_device_eval_batch_size, len(eval_dataset)
+            )
+        return args

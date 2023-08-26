@@ -14,7 +14,7 @@ class Stopper(Protocol):
         ...
 
 
-class Continuous:
+class NullStopper:
     def __call__(self) -> bool:
         return False
 

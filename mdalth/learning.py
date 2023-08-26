@@ -3,87 +3,86 @@ Active learning loop.
 """
 
 from __future__ import annotations
+from dataclasses import dataclass
 import json
 from pprint import pformat
 import shutil
 from typing import Optional
 
-from datasets import Dataset
+from datasets import Dataset, DatasetDict
 import numpy as np
 from transformers import (
     AutoModelForSequenceClassification,
     PreTrainedModel,
     Trainer,
-    TrainingArguments,
 )
 from transformers.trainer_utils import TrainOutput
 
 from mdalth.helpers import IOHelper, Pool, TrainerFactory
-from mdalth.querying import RandomQuerier
+from mdalth.querying import Querier, RandomQuerier
+from mdalth.stopping import Stopper, NullStopper
 from mdalth.utils import load_with_pickle, save_with_pickle
 
 
-def validate(training_args: TrainingArguments) -> None:
-    assert training_args.load_best_model_at_end is True
-
-
+@dataclass
 class Config:
-    def __init__(
-        self,
-        n_rows: Optional[int] = None,
-        n_start: int | float = 0.1,
-        n_query: int | float = 0.1,
-        validation_set_size: int | float = 0.1,
-        do_train: bool = True,
-        do_test: bool = True,
-    ) -> None:
-        self.n_rows = n_rows
-        self._n_start = n_start
-        self._n_query = n_query
-        self._validation_set_size = validation_set_size
-        self.do_train = do_train
-        self.do_test = do_test
-        if isinstance(self._n_query, float) or isinstance(self._n_start, float):
-            if self.n_rows is None:
-                raise ValueError("n_rows must be specified if n_start or n_query is a float.")
+    """Configures the active learning loop."""
 
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(\n{pformat(vars(self))}\n)"
+    n_rows: Optional[int] = None
+    n_start: int | float = 0.1
+    n_query: int | float = 0.1
+    val_set_size: int | float = 0.1
+    do_train: bool = True
+    do_test: bool = True
+    n_iterations: Optional[int] = None
 
-    @property
-    def n_iterations(self) -> int:
-        q, r = divmod(self.n_rows - self.n_start, self.n_query)
-        if r == 0:
-            return q
-        return q + 1
-
-    @property
-    def n_start(self) -> int:
-        if isinstance(self._n_start, float):
-            return int(self._n_start * self.n_rows)
-        return self._n_start
-
-    @property
-    def n_query(self) -> int:
-        if isinstance(self._n_query, float):
-            return int(self._n_query * self.n_rows)
-        return self._n_query
+    def __post_init__(self) -> None:
+        if isinstance(self.n_start, float):
+            self.n_start = int(self.n_start * self.n_rows)
+        if isinstance(self.n_query, float):
+            self.n_query = int(self.n_query * self.n_rows)
+        if self.n_iterations is None:
+            q, r = divmod(self.n_rows - self.n_start, self.n_query)
+            if r == 0:
+                self.n_iterations = r
+            else:
+                self.n_iterations = q + 1
 
     def validation_set_size(self, num_labeled: Optional[int] = None) -> int:
-        if isinstance(self._validation_set_size, int):
-            return self._validation_set_size
-        if isinstance(self._validation_set_size, float) and num_labeled is not None:
-            return int(self._validation_set_size * num_labeled)
+        if isinstance(self.val_set_size, int):
+            return self.val_set_size
+        if isinstance(self.val_set_size, float) and num_labeled is not None:
+            return int(self.val_set_size * num_labeled)
         raise RuntimeError()
 
 
+@dataclass
+class LearnerState:
+    """Mutable data from a single iteration of the active learning loop."""
+
+    batch: np.ndarray
+    dataset: DatasetDict
+    iteration: int
+    trainer: Trainer
+    train_output: TrainOutput
+    best_model: Optional[PreTrainedModel] = None
+
+    def __post_init__(self) -> None:
+        if self.trainer.args.load_best_model_at_end or self.best_model is None:
+            self.best_model = self.trainer.model
+
+
 class Learner:
+    """Perform active learning."""
+
     def __init__(
         self,
         pool: Pool,
         config: Config,
         io_helper: IOHelper,
         trainer_fact: TrainerFactory,
+        querier: Optional[Querier] = None,
+        stopper: Optional[Stopper] = None,
         _iteration: int = 0,
     ) -> None:
         self.pool = pool
@@ -93,17 +92,21 @@ class Learner:
         self.iteration = _iteration
         if not self.io_helper.valid:
             raise FileExistsError(self.io_helper.root_path)
+        self.querier = RandomQuerier() if querier is None else querier
+        self.stopper = NullStopper() if stopper is None else stopper
+        self.state = None
 
-    def __call__(self) -> Learner:
+    def __call__(self) -> LearnerState:
         if self.iteration != 0:
             raise RuntimeError("The zeroth iteration has already been run.")
         self.pre()
-        batch = self.query()
-        trainer, train_output = self.train(batch)
+        batch = self.query_first()
+        dataset, trainer, train_output = self.train(batch)
         self.save_to_disk(batch, trainer.model, train_output)
         self.post()
         self.iteration += 1
-        return self
+        self.state = LearnerState(batch, dataset, self.iteration, trainer, train_output)
+        return self.state
 
     def __iter__(self) -> Learner:
         return self
@@ -111,18 +114,19 @@ class Learner:
     def __len__(self) -> int:
         return self.config.n_iterations
 
-    def __next__(self) -> tuple[PreTrainedModel, TrainOutput]:
+    def __next__(self) -> LearnerState:
         if self.iteration == 0:
             raise RuntimeError("The zeroth iteration has not been run.")
         if self.iteration > len(self):
             raise StopIteration()
         self.pre()
-        batch = self.query_first()
-        trainer, train_output = self.train(batch)
+        batch = self.query()
+        dataset, trainer, train_output = self.train(batch)
         self.save_to_disk(batch, trainer.model, train_output)
         self.post()
         self.iteration += 1
-        return trainer.model, train_output
+        self.state = LearnerState(batch, dataset, self.iteration, trainer, train_output)
+        return self.state
 
     @property
     def dataset(self) -> Dataset:
@@ -158,32 +162,37 @@ class Learner:
         model.save_pretrained(self.io_helper.model_path(self.iteration))
         save_with_pickle(self.io_helper.trainer_output_path(self.iteration), train_output)
 
-    def train(self, batch: np.ndarray) -> tuple[Trainer, TrainOutput]:
+    def train(self, batch: np.ndarray) -> tuple[Dataset, Trainer, TrainOutput]:
         self.pool.label(batch)
         test_size = self.config.validation_set_size(len(self.pool.labeled_idx))
         dataset = self.pool.labeled.train_test_split(test_size=test_size)
         trainer = self.trainer_fact(dataset["train"], dataset["test"])
         trainer.args.output_dir = self.io_helper.checkpoints_path(self.iteration)
         train_output = trainer.train()
-        return trainer, train_output
-
-    def pre(self) -> None:
-        ...
-
-    def post(self) -> None:
-        shutil.rmtree(self.io_helper.checkpoints_path(self.iteration))
-
-    def stop(self) -> bool:
-        return False
+        return dataset, trainer, train_output
 
     def query_first(self) -> np.ndarray:
         return RandomQuerier()(self.config.n_start, self.pool.unlabeled_idx)
 
+    def pre(self) -> None:
+        """Subclass and override to inject custom behavior."""
+
+    def post(self) -> None:
+        """Subclass and override to inject custom behavior."""
+        shutil.rmtree(self.io_helper.checkpoints_path(self.iteration))
+
+    def stop(self) -> bool:
+        """Subclass and override to inject custom behavior."""
+        return self.stopper()
+
     def query(self) -> np.ndarray:
-        return RandomQuerier()(self.config.n_query, self.pool.unlabeled_idx)
+        """Subclass and override to inject custom behavior."""
+        return self.querier(self.config.n_query, self.pool.unlabeled_idx)
 
 
 class Evaluator:
+    """Evaluate trained models on a test set."""
+
     def __init__(
         self,
         ts_trainer_fact: TrainerFactory,

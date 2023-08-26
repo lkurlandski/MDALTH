@@ -3,18 +3,22 @@ Vanilla analyze of experiments.
 """
 
 import json
-from pathlib import Path
 
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
-import numpy as np
-import pandas as pd
 
 from mdalth.helpers import IOHelper
 
 
 class Analyzer:
+    """Simplistic analysis of active learning curves.
+
+    Notes
+    -----
+        - This is not meant to be beautiful, merely functional and reliable.
+    """
+
     def __init__(self, io_helper: IOHelper) -> None:
         self.io_helper = io_helper
 

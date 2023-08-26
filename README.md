@@ -1,6 +1,6 @@
-# MDALTH: Modular Deep Active Learning for Torch and Huggingface
+# MDALTH: Modular Deep Active Learning on Torch and Huggingface
 
-MDALTH is a modular library for active learning query algorithms and stopping methods. We implement the core logic of these methods using base numpy, then provide high-level wrappers for torch and huggingface users. Our goal is to make state-of-the-art AL techniques accessible to all.
+MDALTH is a modular library of active learning query algorithms and stopping methods centered towards torch and huggingface users.
 
 ## Setup
 
@@ -80,3 +80,4 @@ Please consider suggestions from pylint and the associated .pylintrc file. Autof
 - checkpointing system for the Learner and Evaluator
 - improve file storage by serializing objects as json instead of pickle
 - store the Trainer's log_history for each iteration
+- consider defining the stopping and querying interfaces as their own class

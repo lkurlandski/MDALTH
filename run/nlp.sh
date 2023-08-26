@@ -14,12 +14,17 @@
 
 source ~/anaconda3/etc/profile.d/conda.sh
 conda activate HuggingfaceActiveLearning
-export CUDA_VISIBLE_DEVICES=
+export CUDA_VISIBLE_DEVICES=1
 
 python ./scripts/nlp.py \
+--learn \
+--evaluate \
 --analyze \
---subset=1000 \
---dataset="imdb" \
+--subset=-1 \
+--dataset="ag_news" \
 --pretrained_model_name_or_path="distilbert-base-uncased" \
 --metric="accuracy" \
+--output_root="./output/nlp/uncertainty" \
+--querier="uncertainty" \
+--n_iterations=20 \
 --verbosity=40
