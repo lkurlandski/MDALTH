@@ -5,7 +5,7 @@ Utility functions.
 from collections.abc import Collection
 from pathlib import Path
 import pickle
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 
@@ -42,3 +42,11 @@ def probs_to_confs(probs: np.ndarray) -> np.ndarray:
 
 def probs_to_preds(probs: np.ndarray) -> np.ndarray:
     return np.argmax(probs, axis=1)
+
+
+def proportion_or_integer_to_int(x: float, total: Optional[int]) -> int:
+    if x >= 1.0 and x.is_integer():
+        return int(x)
+    if 0 <= x <= 1.0 and total is not None:
+        return int(x * total)
+    raise RuntimeError(f"Cannot convert {x=} to integer with {total=}.")

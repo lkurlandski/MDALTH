@@ -1,8 +1,12 @@
 """
-Query algorithms for active learning.
+Core logic for query algorithms.
+
+Notes
+-----
+  - should be framework agnostic, i.e., rely only on mumpy and scipy, not torch etc.
 """
 
-from typing import Literal, Protocol
+from typing import Protocol
 
 import numpy as np
 from numpy import random
@@ -20,30 +24,21 @@ class RandomQuerier:
 
 
 class UncertaintyQuerier:
-    def __init__(self, mode: Literal["E", "M", "U"]) -> None:
-        self.mode = mode
-
     def __call__(self, n_query: int, classwise_probs: np.ndarray) -> np.ndarray:
-        if self.mode == "E":
-            scores = self.entropy(classwise_probs)
-        elif self.mode == "M":
-            scores = self.margin(classwise_probs)
-        elif self.mode == "U":
-            scores = self.uncertainty(classwise_probs)
+        scores = 1 - np.max(classwise_probs, axis=1)
         return np.flip(scores.argsort())[:n_query]
 
-    @staticmethod
-    def uncertainty(probs: np.ndarray) -> np.ndarray:
-        return 1 - np.max(probs, axis=1)
 
-    @staticmethod
-    def margin(probs: np.ndarray) -> np.ndarray:
-        if probs.shape[1] == 1:
-            return np.zeros(shape=(probs.shape[0],))
-        part = np.partition(-probs, 1, axis=1)
-        margin = -part[:, 0] + part[:, 1]
-        return margin
+class MarginQuerier:
+    def __call__(self, n_query: int, classwise_probs: np.ndarray) -> np.ndarray:
+        if classwise_probs.shape[1] == 1:
+            return np.zeros(shape=(classwise_probs.shape[0],))
+        part = np.partition(-1 * classwise_probs, 1, axis=1)
+        scores = -part[:, 0] + part[:, 1]
+        return np.flip(scores.argsort())[:n_query]
 
-    @staticmethod
-    def entropy(probs: np.ndarray) -> np.ndarray:
-        return np.transpose(entropy(np.transpose(probs)))
+
+class EntropyQuerier:
+    def __call__(self, n_query: int, classwise_probs: np.ndarray) -> np.ndarray:
+        scores = np.transpose(entropy(np.transpose(classwise_probs)))
+        return np.flip(scores.argsort())[:n_query]

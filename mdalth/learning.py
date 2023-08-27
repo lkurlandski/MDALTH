@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from pprint import pformat
 import shutil
-from typing import Optional
+from typing import Optional  # , Self
 
 from datasets import Dataset, DatasetDict
 import numpy as np
@@ -21,8 +21,22 @@ from transformers.trainer_utils import TrainOutput
 
 from mdalth.helpers import IOHelper, Pool, TrainerFactory
 from mdalth.querying import Querier, RandomQuerier
+from mdalth.querying_wrappers import querier_wrapper_factory, QuerierWrapper
 from mdalth.stopping import Stopper, NullStopper
-from mdalth.utils import load_with_pickle, save_with_pickle
+
+# from mdalth.tp import ProportionOrInteger
+from mdalth.utils import load_with_pickle, save_with_pickle, proportion_or_integer_to_int
+
+
+# FIXME: remove
+ProportionOrInteger = float
+
+
+def compute_total_al_iterations(n_rows: int, n_start: int, n_query: int) -> int:
+    q, r = divmod(n_rows - n_start, n_query)
+    if r == 0:
+        return r
+    return q + 1
 
 
 @dataclass
@@ -32,60 +46,58 @@ class Config:
     n_rows: Optional[int] = field(
         default=None,
         metadata={
-            "help": "Number of rows in the dataset. Necessary if n_start or n_query are floats."
+            "help": "Number of rows in the dataset. Must be passed in `__init__` or `configure`."
         },
     )
-    n_start: int | float = field(
+    n_start: ProportionOrInteger = field(
         default=0.1, metadata={"help": "Number of examples to inititally randomly label."}
     )
-    n_query: int | float = field(
+    n_query: ProportionOrInteger = field(
         default=0.1, metadata={"help": "Number of examples to query per iteration."}
     )
-    val_set_size: int | float = field(
+    val_set_size: ProportionOrInteger = field(
         default=0.1, metadata={"help": "Size of the randomly selected validation set."}
     )
-    n_iterations: Optional[int] = field(
-        default=None, metadata={"help": "Optionally run a subset of AL iterations."}
+    n_iterations: ProportionOrInteger = field(
+        default=1.0, metadata={"help": "Optionally run a subset of AL iterations."}
     )
     learn: bool = field(
         default=False,
-        metadata={
-            "help": "Whether to run the active learning training loop. Not used by the Learner or Evaulator or Analyzer. Intended to be used for scripting."
-        },
+        metadata={"help": "Whether to run the training loop. Used for scripting."},
     )
-    evaulate: bool = field(
+    evaluate: bool = field(
         default=False,
-        metadata={
-            "help": "Whether to run the active learning evaluation loop. Not used by the Learner or Evaluator or Analyzer. Intended to be used for scripting."
-        },
-    )
-    analyze: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether to run the active learning analysis. Not used by the Learner or Evaluator or Analyzer. Intended to be used for scripting."
-        },
+        metadata={"help": "Whether to run the evaluation loop. Used for scripting."},
     )
 
     def __post_init__(self) -> None:
-        if isinstance(self.n_start, float):
-            self.n_start = int(self.n_start * self.n_rows)
-        if isinstance(self.n_query, float):
-            self.n_query = int(self.n_query * self.n_rows)
-        if self.n_iterations is None:
-            q, r = divmod(self.n_rows - self.n_start, self.n_query)
-            if r == 0:
-                self.n_iterations = r
-            else:
-                self.n_iterations = q + 1
+        self._configured = False
+        if self.n_rows:
+            self.configure(self.n_rows)
+            self._configured = True
 
+    def configure(self, n_rows: int) -> Config:
+        assert not self._configured, "If configuring, Config must not be configured!"
+        self.n_rows = n_rows
+        self.n_start = proportion_or_integer_to_int(self.n_start, self.n_rows)
+        self.n_query = proportion_or_integer_to_int(self.n_query, self.n_rows)
+        total = compute_total_al_iterations(self.n_rows, self.n_start, self.n_query)
+        self.n_iterations = proportion_or_integer_to_int(self.n_iterations, total)
+        self._configured = True
+        return self
+
+    # TODO: move to function
     def validation_set_size(self, num_labeled: Optional[int] = None) -> int:
+        assert self._configured, "Config must be configured!"
         if isinstance(self.val_set_size, int):
             return self.val_set_size
         if isinstance(self.val_set_size, float) and num_labeled is not None:
             return int(self.val_set_size * num_labeled)
         raise RuntimeError()
 
+    # TODO: move to function
     def output_root(self) -> Path:
+        assert self._configured, "Config must be configured!"
         others = [self.n_start, self.n_query, self.val_set_size]
         others = list(map(str, others))
         return Path("").joinpath(*others)
@@ -127,8 +139,11 @@ class Learner:
         self.iteration = _iteration
         if not self.io_helper.valid:
             raise FileExistsError(self.io_helper.root_path)
-        self.querier = RandomQuerier() if querier is None else querier
-        self.stopper = NullStopper() if stopper is None else stopper
+        querier = RandomQuerier() if querier is None else querier
+        self.querier = querier_wrapper_factory(querier, pool, trainer_fact)
+        stopper = NullStopper() if stopper is None else stopper
+        # TODO: wrap the stopper in a StopperWrapper.
+        self.stopper = stopper
         self.state = None
 
     def __call__(self) -> LearnerState:
@@ -222,7 +237,7 @@ class Learner:
 
     def query(self) -> np.ndarray:
         """Subclass and override to inject custom behavior."""
-        return self.querier(self.config.n_query, self.pool.unlabeled_idx)
+        return self.querier(self.config.n_query, self.state.best_model)
 
 
 class Evaluator:
