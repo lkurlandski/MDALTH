@@ -3,8 +3,9 @@ Active learning loop.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
+from pathlib import Path
 from pprint import pformat
 import shutil
 from typing import Optional
@@ -28,13 +29,42 @@ from mdalth.utils import load_with_pickle, save_with_pickle
 class Config:
     """Configures the active learning loop."""
 
-    n_rows: Optional[int] = None
-    n_start: int | float = 0.1
-    n_query: int | float = 0.1
-    val_set_size: int | float = 0.1
-    do_train: bool = True
-    do_test: bool = True
-    n_iterations: Optional[int] = None
+    n_rows: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "Number of rows in the dataset. Necessary if n_start or n_query are floats."
+        },
+    )
+    n_start: int | float = field(
+        default=0.1, metadata={"help": "Number of examples to inititally randomly label."}
+    )
+    n_query: int | float = field(
+        default=0.1, metadata={"help": "Number of examples to query per iteration."}
+    )
+    val_set_size: int | float = field(
+        default=0.1, metadata={"help": "Size of the randomly selected validation set."}
+    )
+    n_iterations: Optional[int] = field(
+        default=None, metadata={"help": "Optionally run a subset of AL iterations."}
+    )
+    learn: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to run the active learning training loop. Not used by the Learner or Evaulator or Analyzer. Intended to be used for scripting."
+        },
+    )
+    evaulate: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to run the active learning evaluation loop. Not used by the Learner or Evaluator or Analyzer. Intended to be used for scripting."
+        },
+    )
+    analyze: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to run the active learning analysis. Not used by the Learner or Evaluator or Analyzer. Intended to be used for scripting."
+        },
+    )
 
     def __post_init__(self) -> None:
         if isinstance(self.n_start, float):
@@ -54,6 +84,11 @@ class Config:
         if isinstance(self.val_set_size, float) and num_labeled is not None:
             return int(self.val_set_size * num_labeled)
         raise RuntimeError()
+
+    def output_root(self) -> Path:
+        others = [self.n_start, self.n_query, self.val_set_size]
+        others = list(map(str, others))
+        return Path("").joinpath(*others)
 
 
 @dataclass

@@ -3,13 +3,12 @@ Run active learning experiments for text classification.
 """
 
 from argparse import ArgumentParser
+from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import random
 import sys
 from typing import Any, Optional
-
-sys.path.insert(0, ".")
 
 from datasets import concatenate_datasets, load_dataset
 import evaluate
@@ -20,6 +19,7 @@ from transformers import (
     AutoTokenizer,
     DataCollatorWithPadding,
     EarlyStoppingCallback,
+    HfArgumentParser,
     PreTrainedModel,
     TrainingArguments,
 )
@@ -28,54 +28,36 @@ from torch import tensor
 from torch.nn.functional import softmax
 from tqdm import tqdm
 
+sys.path.insert(0, ".")  # pylint: disable=wrong-import-position
+
 from mdalth.analysis import Analyzer
 from mdalth.cfg import BR
 from mdalth.helpers import IOHelper, Pool
-from mdalth.learning import Config, IOHelper, Learner, Evaluator, TrainerFactory
+from mdalth.learning import Config, Learner, Evaluator, TrainerFactory
 from mdalth.querying import UncertaintyQuerier
 from mdalth.stopping import StabilizingPredictions
 
 
-parser = ArgumentParser()
-parser.add_argument("--learn", action="store_true")
-parser.add_argument("--evaluate", action="store_true")
-parser.add_argument("--analyze", action="store_true")
-parser.add_argument("--subset", type=int, default=-1)
-parser.add_argument("--dataset", type=str, default="imdb", choices=["imdb", "ag_news"])
-parser.add_argument("--pretrained_model_name_or_path", type=str, default="distilbert-base-uncased")
-parser.add_argument("--metric", type=str, default="accuracy")
-parser.add_argument("--output_root", type=str, default="./output")
-parser.add_argument("--querier", type=str, required=False, choices=["random", "uncertainty"])
-parser.add_argument(
-    "--stopper",
-    type=str,
-    required=False,
-    choices=["null", "stabilizing_predictions", "changing_confidence"],
-)
-parser.add_argument("--seed", type=int, default=0)
-parser.add_argument("--verbosity", type=int, choices=[10, 20, 30, 40, 50], default=logging.WARNING)
-parser.add_argument("--n_iterations", type=int, required=False)
-args = parser.parse_args()
+@dataclass
+class Arguments:
+
+    dataset: str = field(default="imdb", metadata={"help": "Dataset to use."})
+    pretrained_model_name_or_path: str = field(
+        default="distilbert-base-uncased", metadata={"help": "Pretrained model to use."}
+    )
+    metric: str = field(default="accuracy", metadata={"help": "Metric to use."})
+    querier: str = field(default="random", metadata={"help": "Querier to use."})
+    stopper: str = field(default="null", metadata={"help": "Stopper to use."})
+    seed: int = field(default=0, metadata={"help": "Random seed."})
 
 
-LEARN: bool = args.learn
-EVALUATE: bool = args.evaluate
-ANALYZE: bool = args.analyze
-SUBSET: Optional[int] = args.subset if args.subset > 0 else None
-DATASET: str = args.dataset
-PRETRAINED_MODEL_NAME_OR_PATH: str = args.pretrained_model_name_or_path
-METRIC: str = args.metric
-OUTPUT_ROOT: str = args.output_root
-QUERIER: Optional[str] = args.querier
-STOPPER: Optional[str] = args.stopper
-SEED: int = args.seed
-VERBOSITY: int = args.verbosity
-N_ITERATIONS: Optional[int] = args.n_iterations
+parser = HfArgumentParser([Arguments, Config])
+args, config = parser.parse_args()
 
 
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
+random.seed(args.seed)
+np.random.seed(args.seed)
+torch.manual_seed(args.seed)
 
 
 # First, we need to define the interface between the sampling algorithms, the
@@ -85,6 +67,10 @@ torch.manual_seed(SEED)
 # Note that none if this is necessary if you use the default settings, i.e.,
 # random sampling and no stopping.
 # If that is the case, just use the vanilla Learner :).
+
+
+class BALDLearner(Learner):
+    ...
 
 
 class UncertaintyLearner(Learner):
@@ -118,9 +104,9 @@ class StabilizingPredictionsLearner(Learner):
 
 
 bases = []
-if QUERIER == "uncertainty":
+if args.querier == "uncertainty":
     bases.append(UncertaintyLearner)
-if STOPPER == "stabilizing_predictions":
+if args.stopper == "stabilizing_predictions":
     bases.append(StabilizingPredictionsLearner)
 Learner = type("Learner", tuple(bases + [Learner]), {})
 
@@ -130,20 +116,20 @@ Learner = type("Learner", tuple(bases + [Learner]), {})
 # Hopefully, we will be able to simplify that bit above in the future.
 
 querier = None
-if QUERIER == "uncertainty":
+if args.querier == "uncertainty":
     querier = UncertaintyQuerier("U")
 stopper = None
-if STOPPER == "stabilizing_predictions":
+if args.querier == "stabilizing_predictions":
     stopper = StabilizingPredictions(3, 0.99)
 
 
-dataset = load_dataset(DATASET)
-if SUBSET:
-    dataset["train"] = dataset["train"].select(range(SUBSET))
-    dataset["test"] = dataset["test"].select(range(SUBSET))
+dataset = load_dataset(args.dataset)
+if args.subset is not None:
+    dataset["train"] = dataset["train"].select(range(args.subset))
+    dataset["test"] = dataset["test"].select(range(args.subset))
 
 
-tokenizer = AutoTokenizer.from_pretrained(PRETRAINED_MODEL_NAME_OR_PATH)
+tokenizer = AutoTokenizer.from_pretrained(args.pretrained_model_name_or_path)
 
 
 def preprocess_function(examples):
@@ -152,7 +138,7 @@ def preprocess_function(examples):
 
 dataset = dataset.map(preprocess_function, batched=True)
 data_collator = DataCollatorWithPadding(tokenizer=tokenizer, pad_to_multiple_of=8)
-metric = evaluate.load(METRIC)
+metric = evaluate.load(args.metric)
 callbacks = [EarlyStoppingCallback(early_stopping_patience=2)]
 
 
@@ -164,7 +150,7 @@ def compute_metrics(eval_pred):
 
 def model_init() -> PreTrainedModel:
     return AutoModelForSequenceClassification.from_pretrained(
-        PRETRAINED_MODEL_NAME_OR_PATH,
+        args.pretrained_model_name_or_path,
         num_labels=dataset["train"].features["label"].num_classes,
     )
 
@@ -173,7 +159,7 @@ training_args = TrainingArguments(
     output_dir="PLACEHOLDER_WILL_BE_SET_BY_CONFIG",
     learning_rate=2e-5,
     per_device_train_batch_size=64,
-    per_device_eval_batch_size=1024,
+    per_device_eval_batch_size=768,
     num_train_epochs=10,
     weight_decay=0.01,
     evaluation_strategy="epoch",
@@ -181,15 +167,11 @@ training_args = TrainingArguments(
     load_best_model_at_end=True,
     save_total_limit=1,
     optim="adamw_torch",
+    group_by_length=True,
+    fp16=True,
 )
 pool = Pool(dataset["train"])
-config = Config(
-    n_rows=dataset["train"].num_rows,
-    n_start=64,
-    n_query=64,
-    n_iterations=N_ITERATIONS,
-)
-io_helper = IOHelper(Path(OUTPUT_ROOT), overwrite=True)
+io_helper = IOHelper(config.output_root(), overwrite=True)
 trainer_fact = TrainerFactory(
     model_init=model_init,
     args=training_args,
@@ -214,21 +196,21 @@ print(flush=True)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "true"
 
-logging.set_verbosity(VERBOSITY)
+logging.set_verbosity(args.log_level)
 
-if LEARN:
+if config.learn:
     learner = Learner(pool, config, io_helper, trainer_fact, querier, stopper)
     learner_state = learner()
     for i, learner_state in enumerate(tqdm(learner), 1):
         ...
 
-if EVALUATE:
+if config.evaluate:
     evaluator = Evaluator(trainer_fact, dataset["test"], io_helper)
     evaluator = evaluator()
     for i, (model, results) in enumerate(tqdm(evaluator), 1):
         ...
 
-if ANALYZE:
+if config.analyze:
     analyzer = Analyzer(io_helper)
     fig, ax = analyzer()
     fig.savefig(io_helper.learning_curve_path, dpi=400)
