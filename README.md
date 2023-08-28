@@ -42,7 +42,7 @@ conda activate MDALTH
 pip install evaluate
 ```
 
-Obviously, you need to `conda activate` it each time before use. 
+Obviously, you need to `conda activate` it each time before use. This command may take a day to actually execute because conda is so slow (it should really be called tortoise), so you should probably run it in a screen or tmux shell.
 
 We are working on improving the flexibility of our dependencies, but for now, see environment.yml for comprehenisve details about dependency requirements.
 
