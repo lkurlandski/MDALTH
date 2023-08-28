@@ -16,15 +16,29 @@ source ~/anaconda3/etc/profile.d/conda.sh
 conda activate HuggingfaceActiveLearning
 export CUDA_VISIBLE_DEVICES=1
 
-python ./examples/nlp.py \
+python ./examples/main.py \
+--task="text" \
 --learn \
 --evaluate \
 --dataset="ag_news" \
 --pretrained_model_name_or_path="distilbert-base-uncased" \
 --metric="accuracy" \
---querier=$1 \
+--querier="random" \
 --stopper="null" \
---n_iterations=32 \
---log_level=50 \
---n_start=32 \
---n_query=32
+--n_iterations=4 \
+--log_level="warning" \
+--n_start=64 \
+--n_query=64 \
+--output_dir="WILL_BE_IGNORED" \
+--learning_rate="2e-5" \
+--per_device_train_batch_size=64 \
+--per_device_eval_batch_size=768 \
+--num_train_epochs=25 \
+--weight_decay=0.01 \
+--evaluation_strategy="epoch" \
+--save_strategy="epoch" \
+--load_best_model_at_end \
+--save_total_limit=1 \
+--optim="adamw_torch" \
+--group_by_length \
+--fp16=True

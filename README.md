@@ -1,6 +1,10 @@
 # MDALTH: Modular Deep Active Learning on Torch and Huggingface
 
-MDALTH is a modular library of active learning query algorithms and stopping methods geared towards torch and huggingface users.
+MDALTH is a modular library of active learning query algorithms and stopping methods.
+
+## Goals
+
+Our goal is to provide modular, framework agnostic query algorithms and stopping methods for active learning. Our secondary goal is to provide high-level wrappers to these methods for huggingface users to make active learning highly accessible.
 
 ## Status
 
@@ -8,13 +12,24 @@ The main branch is currently a pre-release. Our immediate goal is to develop a r
 
 ## Examples
 
-All experiments are run with the scripts from `./examples` then analyzed with the `analysis.ipynb` notebook. The overall learning process is very similar for each example, so we only describe it in full in the example directly below. Successive examples will only discuss any parameters that differ.
+All experiments are run with `./examples/main.py` then analyzed with the `./examples/analysis.ipynb` notebook.
 
-From `nlp.py`, we fine-tune [distilbert-base-uncased](https://huggingface.co/distilbert-base-uncased) on the [ag_news](https://huggingface.co/datasets/ag_news) dataset. We initially select 64 random examples for labeling, then use active learning to query with a batch size of 64. At each iteration, we finetune the model for 25 epoch in fp16 with AdamW using a batch size of 64. We end training iteration early when validation accuracy on a randomly selected 10% of labeled instances does not increase for two consecutive epochs. We stop active learning after 16 labeling iterations, leading to a total of 64 + (16 * 64) = 1,088 labeled samples out of the 120,000 from ag_news. We then evaluate the best-trained model at each iteration on ag_news's hold-out test set of 7,800 examples and plot the learning curve below.
+### text classification
 
-![image](./examples/output/nlp/queriers.png)
+- model: [distilbert-base-uncased](https://huggingface.co/distilbert-base-uncased)
+- dataset: [ag_news](https://huggingface.co/datasets/ag_news)
+- AL batch size: 32
+- AL iterations: 25
 
-More examples to follow...
+![image](./examples/output/text/queriers.png)
+
+### image classification
+
+Coming soon!
+
+### audio classification
+
+Coming soon!
 
 ## Setup
 

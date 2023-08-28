@@ -70,7 +70,7 @@ class Config:
     resume: bool = field(
         default=False, metadata={"help": "Resume from previous stage of progress. Used for scripting."}
     )
-    resume_from_checkpoint: Optional[int] = field(
+    resume_from_al_checkpoint: Optional[int] = field(
         default=0, metadata={"help": "Checkpoint to resume. If None, resume from latest. Used for scripting."}
     )
 
