@@ -53,7 +53,7 @@ class Arguments:
     metric: str = field(default="accuracy", metadata={"help": "Metric to use."})
     querier: str = field(default="random", metadata={"help": "Querier to use."})
     stopper: str = field(default="null", metadata={"help": "Stopper to use."})
-    subset: ProportionOrInteger = field(default=-1, metadata={"help": "Subset of the dataset to use."})
+    subset: Optional[ProportionOrInteger] = field(default=None, metadata={"help": "Subset of the dataset to use."})
     log_level: int = field(default=40, metadata={"help": "Sets the log level."})
     seed: int = field(default=0, metadata={"help": "Random seed."})
 
@@ -94,7 +94,7 @@ output_root.mkdir(parents=True, exist_ok=True)
 
 
 dataset = load_dataset(args.dataset)
-if args.subset > 0:
+if args.subset is not None and args.subset > 0:
     dataset["train"] = dataset["train"].select(
         range(proportion_or_integer_to_int(args.subset, len(dataset["train"])))
     )

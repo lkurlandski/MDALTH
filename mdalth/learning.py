@@ -32,7 +32,7 @@ from mdalth.utils import get_highest_path, load_with_pickle, save_with_pickle, p
 def compute_total_al_iterations(n_rows: int, n_start: int, n_query: int) -> int:
     q, r = divmod(n_rows - n_start, n_query)
     if r == 0:
-        return r
+        return q
     return q + 1
 
 
