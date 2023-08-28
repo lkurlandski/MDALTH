@@ -262,8 +262,8 @@ class Pool:
     def from_pools(
         cls,
         dataset: Dataset,
-        labeled_idx: Optional[np.ndarray],
-        unlabeled_idx: Optional[np.ndarray],
+        labeled_idx: Optional[np.ndarray] = None,
+        unlabeled_idx: Optional[np.ndarray] = None,
     ) -> Pool:
         if labeled_idx is None and unlabeled_idx is None:
             raise ValueError("At least one of labeled_idx and unlabeled_idx must be provided.")

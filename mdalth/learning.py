@@ -7,8 +7,9 @@ from dataclasses import dataclass, field
 import json
 from pathlib import Path
 from pprint import pformat
+import warnings
 import shutil
-from typing import Optional  # , Self
+from typing import Optional  # , Self  # FIXME: import
 
 from datasets import Dataset, DatasetDict
 import numpy as np
@@ -24,12 +25,8 @@ from mdalth.querying import Querier, RandomQuerier
 from mdalth.querying_wrappers import querier_wrapper_factory, QuerierWrapper
 from mdalth.stopping import Stopper, NullStopper
 
-# from mdalth.tp import ProportionOrInteger
-from mdalth.utils import load_with_pickle, save_with_pickle, proportion_or_integer_to_int
-
-
-# FIXME: remove
-ProportionOrInteger = float
+from mdalth.tp import ProportionOrInteger
+from mdalth.utils import get_highest_path, load_with_pickle, save_with_pickle, proportion_or_integer_to_int
 
 
 def compute_total_al_iterations(n_rows: int, n_start: int, n_query: int) -> int:
@@ -39,6 +36,7 @@ def compute_total_al_iterations(n_rows: int, n_start: int, n_query: int) -> int:
     return q + 1
 
 
+# TODO: refactor scripting args into their own dataclass
 @dataclass
 class Config:
     """Configures the active learning loop."""
@@ -69,6 +67,12 @@ class Config:
         default=False,
         metadata={"help": "Whether to run the evaluation loop. Used for scripting."},
     )
+    resume: bool = field(
+        default=False, metadata={"help": "Resume from previous stage of progress. Used for scripting."}
+    )
+    resume_from_checkpoint: Optional[int] = field(
+        default=0, metadata={"help": "Checkpoint to resume. If None, resume from latest. Used for scripting."}
+    )
 
     def __post_init__(self) -> None:
         self._configured = False
@@ -83,6 +87,12 @@ class Config:
         self.n_query = proportion_or_integer_to_int(self.n_query, self.n_rows)
         total = compute_total_al_iterations(self.n_rows, self.n_start, self.n_query)
         self.n_iterations = proportion_or_integer_to_int(self.n_iterations, total)
+        if self.n_iterations > total:
+            warnings.warn(
+                f"Configured to run {self.n_iterations} iterations, but only {total} are "
+                f"possible. Instead, setting `n_iterations` to {total}."
+            )
+            self.n_iterations = total
         self._configured = True
         return self
 
@@ -103,6 +113,7 @@ class Config:
         return Path("").joinpath(*others)
 
 
+# TODO: should these be optional?
 @dataclass
 class LearnerState:
     """Mutable data from a single iteration of the active learning loop."""
@@ -115,12 +126,18 @@ class LearnerState:
     best_model: Optional[PreTrainedModel] = None
 
     def __post_init__(self) -> None:
-        if self.trainer.args.load_best_model_at_end or self.best_model is None:
-            self.best_model = self.trainer.model
+        if self.trainer is not None:  # TODO: checkpointing system
+            if self.trainer.args.load_best_model_at_end or self.best_model is None:
+                self.best_model = self.trainer.model
 
 
 class Learner:
-    """Perform active learning."""
+    """Perform active learning.
+    
+    TODO
+    ----
+        - add an optional feature to label all data and train model at the end.
+    """
 
     def __init__(
         self,
@@ -186,19 +203,37 @@ class Learner:
     def num_rows(self) -> int:
         return self.dataset.num_rows
 
-    # TODO: implement checkpointing system.
-    # @classmethod
-    # def load_from_disk(cls, output_dir: Path, iteration: Optional[int] = None) -> Learner:
-    #     io_helper = IOHelper(output_dir)
-    #     if not iteration:
-    #         iteration = get_highest_path(io_helper.iterations_path.glob("*"))
-    #     dataset = Dataset.load_from_disk(io_helper.tr_dataset_path)
-    #     batches = [np.loadtxt(io_helper.batch_path(i)) for i in range(iteration)]
-    #     labeled_idx = np.concatenate(batches)
-    #     pool = Pool.from_pools(dataset, labeled_idx)
-    #     config = load_with_pickle(io_helper.config_path)
-    #     trainer_fact = load_with_pickle()
-    #     return cls(pool, config, io_helper, trainer_fact, iteration)
+    # TODO: checkpointing
+    @classmethod
+    def load_from_disk(
+        cls,
+        output_dir: Path,
+        config: Config,
+        trainer_fact: TrainerFactory,
+        querier: Optional[Querier] = None,
+        stopper: Optional[Stopper] = None,
+        iteration: Optional[int] = None,
+    ) -> Learner:
+        warnings.warn("Checkpointing is not very much in a working state. Behavior undefined.")
+        io_helper = IOHelper(output_dir, overwrite=True)
+        if not iteration:
+            iteration = int(get_highest_path(io_helper.iterations_path.glob("*")).name) - 1
+        dataset = Dataset.load_from_disk(io_helper.tr_dataset_path)
+        batches = [np.loadtxt(io_helper.batch_path(i)) for i in range(iteration)]
+        # TODO: remove these hacks.
+        batches = [b.astype(int) for b in batches]
+        labeled_idx = np.concatenate(batches)
+        pool = Pool.from_pools(dataset, labeled_idx)
+        learner = cls(pool, config, io_helper, trainer_fact, querier, stopper, _iteration=iteration)
+        learner.state = LearnerState(
+            batches[-1],
+            None,
+            learner.iteration,
+            None,
+            None,
+            AutoModelForSequenceClassification.from_pretrained(io_helper.model_path(iteration)),
+        )
+        return learner
 
     def save_to_disk(
         self, batch: np.ndarray, model: PreTrainedModel, train_output: TrainOutput
@@ -208,7 +243,7 @@ class Learner:
             save_with_pickle(self.io_helper.config_path, self.config)
             self.dataset.save_to_disk(self.io_helper.tr_dataset_path)
 
-        np.savetxt(self.io_helper.batch_path(self.iteration), batch)
+        np.savetxt(self.io_helper.batch_path(self.iteration), batch, fmt="%i")
         model.save_pretrained(self.io_helper.model_path(self.iteration))
         save_with_pickle(self.io_helper.trainer_output_path(self.iteration), train_output)
 
@@ -241,7 +276,12 @@ class Learner:
 
 
 class Evaluator:
-    """Evaluate trained models on a test set."""
+    """Evaluate trained models on a test set.
+    
+    TODO
+    ----
+        - consolidate the various files into simpler datastructures.
+    """
 
     def __init__(
         self,
@@ -292,16 +332,17 @@ class Evaluator:
     def ts_num_rows(self) -> int:
         return self.ts_dataset.num_rows
 
-    # TODO: implement checkpointing system.
-    # @classmethod
-    # def load_from_disk(cls, output_dir: Path, iteration: Optional[int] = None) -> Evaluator:
-    #     io_helper = IOHelper(output_dir)
-    #     if not iteration:
-    #         complete = []
-    #         for p in io_helper.iterations_path.glob("*"):
-    #             if io_helper._test_metrics in [p_.name for p_ in p.iterdir()]:
-    #                 complete.append(io_helper.iterations_path / p.name)
-    #         iteration = get_highest_path(complete)
+    # TODO: checkpointing system.
+    @classmethod
+    def load_from_disk(cls, output_dir: Path, iteration: Optional[int] = None) -> Evaluator:
+        warnings.warn("Checkpointing is not very much in a working state. Behavior undefined.")
+        io_helper = IOHelper(output_dir)
+        if not iteration:
+            complete = []
+            for p in io_helper.iterations_path.glob("*"):
+                if io_helper._test_metrics in [p_.name for p_ in p.iterdir()]:
+                    complete.append(io_helper.iterations_path / p.name)
+            iteration = get_highest_path(complete)
 
     def save_to_disk(self, results: dict[str, float]) -> None:
         if self.iteration == 0:
