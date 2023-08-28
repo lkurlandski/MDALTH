@@ -48,21 +48,19 @@ class ClasswiseProbsQuerierWrapper(QuerierWrapper):
         querier: UncertaintyQuerier | MarginQuerier | EntropyQuerier,
         pool: Pool,
         trainer_fact: TrainerFactory,
+        probabalistic: bool = True,
     ) -> None:
         super().__init__(querier, pool)
         self.pool = pool
         self.trainer_fact = trainer_fact
+        self.probabalistic = probabalistic
 
     def __call__(self, n_query: int, model: PreTrainedModel) -> np.ndarray:
         trainer = self.trainer_fact(model=model)
         prediction_output = trainer.predict(self.pool.dataset.select(self.pool.unlabeled_idx))
-        if prediction_output.predictions is None:  # TODO: remove
-            print(
-                f"{self.pool=}\n",
-                f"{self.pool.unlabeled_idx=}\n",
-                f"{prediction_output=}"
-            )
-        classwise_probs = softmax(tensor(prediction_output.predictions), dim=1).numpy()
+        classwise_probs = prediction_output.predictions
+        if self.probabalistic:
+            classwise_probs = softmax(tensor(classwise_probs), dim=1).numpy()
         idx_map = {i: self.pool.unlabeled_idx[i] for i in range(len(self.pool.unlabeled_idx))}
         idx_ = self.querier(n_query, classwise_probs)
         idx = np.array([idx_map[i] for i in idx_])
