@@ -12,49 +12,44 @@ The main branch is currently a pre-release. Our immediate goal is to develop a r
 
 ## Examples
 
-All experiments are run with `./examples/main.py` then analyzed with the `./examples/analysis.ipynb` notebook.
+MDALTH allows users to prototype active learning experiments quickly. All experiments are run with `./example/main.py` then analyzed with the `./example/analysis.ipynb` notebook. Each experiment uses the following experimental setup:
+
+- AL initial size: 32
+- AL batch size: 32
+- AL iterations: 16
+- Max Training Epochs: 24
+- Early Stopping Patience: 2
 
 ### text classification
 
 - model: [distilbert-base-uncased](https://huggingface.co/distilbert-base-uncased)
 - dataset: [ag_news](https://huggingface.co/datasets/ag_news)
-- AL batch size: 32
-- AL iterations: 25
 
-![image](./examples/output/text/queriers.png)
+Coming Soon!
 
 ### image classification
 
-Coming soon!
+- model: [google/vit-base-patch16-224-in21k](https://huggingface.co/google/vit-base-patch16-224-in21k)
+- dataset: [food101](https://huggingface.co/datasets/food101)
+
+Coming Soon!
 
 ### audio classification
 
-Coming soon!
+- model: [facebook/wav2vec2-base](https://huggingface.co/facebook/wav2vec2-base)
+- dataset: [speech_commands](https://huggingface.co/datasets/speech_commands)
+
+Coming Soon!
 
 ## Setup
 
 Install git and a package manager, e.g., conda on a Linux machine with a GPU (or a cluster with many GPUs, if you have one lying around).
 
-You do you, but we like conda. To create a virtual environment and install the requirements
+I personally have had the most success using conda for core pytorch installs, then pip for other libraries because it is much faster.
 ```
-conda create -n MDALTH \
-python=3.11 \
-pytorch-cuda=11.8 \
-pytorch \
-torchvision \
-torchaudio \
-torchtext \
-transformers \
-datasets \
-tokenizers \
-accelerate \
-scipy \
-scikit-learn \
-pandas \
-matplotlib \
--c pytorch -c nvidia -c conda-forge
+conda create -n MDALTH python=3.11 pytorch-cuda=11.8 pytorch torchvision torchaudio torchtext -c pytorch -c nvidia
 conda activate MDALTH
-pip install evaluate
+pip install transformers datasets tokenizers accelerate evaluate scipy scikit-learn matplotlib pandas
 ```
 
 Obviously, you need to `conda activate` it each time before use. This command may take a day to actually execute because conda is so slow (it should really be called tortoise), so you should probably run it in a screen or tmux shell.
@@ -72,7 +67,7 @@ To use mdalth components, you have two choices. You can either work within the M
 pip install -e .
 ```
 
-See the ./examples directory for examples of how to use MDALTH.
+See the ./example directory for examples of how to use MDALTH.
 
 ## Similar Libraries
 

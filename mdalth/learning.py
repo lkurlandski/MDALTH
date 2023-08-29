@@ -6,10 +6,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
-from pprint import pformat
 import warnings
 import shutil
-from typing import Optional  # , Self  # FIXME: import
+from typing import Optional
 
 from datasets import Dataset, DatasetDict
 import numpy as np
@@ -26,7 +25,12 @@ from mdalth.querying_wrappers import querier_wrapper_factory, QuerierWrapper
 from mdalth.stopping import Stopper, NullStopper
 
 from mdalth.tp import ProportionOrInteger
-from mdalth.utils import get_highest_path, load_with_pickle, save_with_pickle, proportion_or_integer_to_int
+from mdalth.utils import (
+    get_highest_path,
+    load_with_pickle,
+    save_with_pickle,
+    proportion_or_integer_to_int,
+)
 
 
 def compute_total_al_iterations(n_rows: int, n_start: int, n_query: int) -> int:
@@ -68,10 +72,12 @@ class Config:
         metadata={"help": "Whether to run the evaluation loop. Used for scripting."},
     )
     resume: bool = field(
-        default=False, metadata={"help": "Resume from previous stage of progress. Used for scripting."}
+        default=False,
+        metadata={"help": "Resume from previous stage of progress. Used for scripting."},
     )
     resume_from_al_checkpoint: Optional[int] = field(
-        default=0, metadata={"help": "Checkpoint to resume. If None, resume from latest. Used for scripting."}
+        default=0,
+        metadata={"help": "Checkpoint to resume. If None, resume from latest. Used for scripting."},
     )
 
     def __post_init__(self) -> None:
@@ -133,7 +139,7 @@ class LearnerState:
 
 class Learner:
     """Perform active learning.
-    
+
     TODO
     ----
         - add an optional feature to label all data and train model at the end.
@@ -252,7 +258,10 @@ class Learner:
         test_size = self.config.validation_set_size(len(self.pool.labeled_idx))
         dataset = self.pool.labeled.train_test_split(test_size=test_size)
         trainer = self.trainer_fact(dataset["train"], dataset["test"])
-        trainer.args.output_dir = self.io_helper.checkpoints_path(self.iteration)
+        object.__setattr__(
+            trainer.args, "output_dir", self.io_helper.checkpoints_path(self.iteration)
+        )
+
         train_output = trainer.train()
         return dataset, trainer, train_output
 
@@ -277,7 +286,7 @@ class Learner:
 
 class Evaluator:
     """Evaluate trained models on a test set.
-    
+
     TODO
     ----
         - consolidate the various files into simpler datastructures.

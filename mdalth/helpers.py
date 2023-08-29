@@ -357,11 +357,15 @@ class TrainingArgumentsFactory:
     ) -> TrainingArguments:
         args = deepcopy(self.args)
         if train_dataset is not None:
-            args.per_device_train_batch_size = min(
-                self.args.per_device_train_batch_size, len(train_dataset)
+            object.__setattr__(
+                args,
+                "per_device_train_batch_size",
+                min(self.args.per_device_train_batch_size, len(train_dataset)),
             )
         if eval_dataset is not None:
-            args.per_device_eval_batch_size = min(
-                self.args.per_device_eval_batch_size, len(eval_dataset)
+            object.__setattr__(
+                args,
+                "per_device_eval_batch_size",
+                min(self.args.per_device_eval_batch_size, len(eval_dataset)),
             )
         return args

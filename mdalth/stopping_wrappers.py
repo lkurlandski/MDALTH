@@ -16,7 +16,7 @@ from mdalth.stopping import (
 
 class StoppingWrapper:
     """Interface for stopping algorithms to the Learner.
-    
+
     Notes
     -----
         - if in stop mode (`stop == True`), the wrapper will return True

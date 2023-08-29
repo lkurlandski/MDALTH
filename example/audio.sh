@@ -13,15 +13,15 @@
 
 
 source ~/anaconda3/etc/profile.d/conda.sh
-conda activate HuggingfaceActiveLearning
+conda activate MDALTH
 export CUDA_VISIBLE_DEVICES=1
 
-python ./examples/main.py \
---task="image" \
+python ./example/main.py \
+--task="audio" \
 --learn \
 --evaluate \
---dataset="food101" \
---pretrained_model_name_or_path="google/vit-base-patch16-224-in21k" \
+--dataset="speech_commands" \
+--pretrained_model_name_or_path="facebook/wav2vec2-base" \
 --metric="accuracy" \
 --querier="random" \
 --stopper="null" \
@@ -30,9 +30,9 @@ python ./examples/main.py \
 --n_start=64 \
 --n_query=64 \
 --output_dir="WILL_BE_IGNORED" \
---learning_rate="5e-5" \
---per_device_train_batch_size=256 \
---per_device_eval_batch_size=256 \
+--learning_rate="2e-5" \
+--per_device_train_batch_size=32 \
+--per_device_eval_batch_size=32 \
 --gradient_accumulation_steps=4 \
 --num_train_epochs=25 \
 --weight_decay=0.01 \
