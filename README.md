@@ -96,12 +96,3 @@ We are interested in collaborating! Message me on Github if you would like to ge
 ### Style
 
 Please consider suggestions from pylint and the associated .pylintrc file. Autoformat with black --line-length=100.
-
-### TODO
-- checkpointing system for the Learner and Evaluator
-- improve file storage by serializing objects as json instead of pickle
-- store the Trainer's log_history for each iteration
-- use the newest features from the numpy.typing package to type hint dtypes
-- implement utilities to facilitate large-scale stopping method analysis
-  - dump stopping method information
-  - determine stopping point after AL terminates
