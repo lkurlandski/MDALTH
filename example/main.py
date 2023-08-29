@@ -11,9 +11,11 @@ from typing import Optional
 
 from datasets import load_dataset
 import evaluate
+from evaluate import EvaluationModule
 import numpy as np
 from transformers import (
     EarlyStoppingCallback,
+    EvalPrediction,
     HfArgumentParser,
     TrainingArguments,
 )
@@ -54,7 +56,7 @@ class Arguments:
     )
 
 
-def compute_metrics(metric, eval_pred):
+def compute_metrics(metric: EvaluationModule, eval_pred: EvalPrediction):
     predictions, labels = eval_pred
     predictions = np.argmax(predictions, axis=1)
     return metric.compute(predictions=predictions, references=labels)
@@ -106,7 +108,7 @@ def main(args: Arguments, config: Config, training_args: TrainingArguments) -> N
         raise ValueError(f"Unknown task {args.task}.")
 
     dataset = dataset.map(
-        lambda examples: task_manager.preprocess_function(examples),  # TODO: potential hash issue?
+        task_manager.preprocess_function,  # TODO: this does not get hashed properly
         remove_columns=task_manager.remove_columns,
         batched=True,
     )
