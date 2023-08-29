@@ -25,21 +25,21 @@ MDALTH allows users to prototype active learning experiments quickly. All experi
 - model: [distilbert-base-uncased](https://huggingface.co/distilbert-base-uncased)
 - dataset: [ag_news](https://huggingface.co/datasets/ag_news)
 
-Coming Soon!
+Learning Curve Coming Soon!
 
 ### image classification (`example/image.sh`)
 
 - model: [google/vit-base-patch16-224-in21k](https://huggingface.co/google/vit-base-patch16-224-in21k)
 - dataset: [food101](https://huggingface.co/datasets/food101)
 
-Coming Soon!
+Learning Curve Coming Soon!
 
 ### audio classification (`example/audio.sh`)
 
 - model: [facebook/wav2vec2-base](https://huggingface.co/facebook/wav2vec2-base)
 - dataset: [speech_commands](https://huggingface.co/datasets/speech_commands)
 
-Coming Soon!
+Learning Curve Coming Soon!
 
 ## Setup
 
@@ -49,10 +49,10 @@ I personally have had the most success using conda for core pytorch installs, th
 ```
 conda create -n MDALTH python=3.11 pytorch-cuda=11.8 pytorch torchvision torchaudio torchtext -c pytorch -c nvidia
 conda activate MDALTH
-pip install transformers datasets tokenizers accelerate evaluate scipy scikit-learn matplotlib pandas
+pip install transformers datasets tokenizers accelerate evaluate scipy scikit-learn matplotlib pandas librosa
 ```
 
-Obviously, you need to `conda activate` it each time before use. This command may take a day to actually execute because conda is so slow (it should really be called tortoise), so you should probably run it in a screen or tmux shell.
+Obviously, you need to `conda activate` it each time before use. If you aren't interested in doing text, image, or audio classification, you don't need to install those dependencies (e.g., torchaudio and soundfile for audio classification).
 
 We are working on improving the flexibility of our dependencies, but for now, see environment.yml for comprehenisve details about dependency requirements.
 
@@ -67,7 +67,14 @@ To use mdalth components, you have two choices. You can either work within the M
 pip install -e .
 ```
 
-See the ./example directory for examples of how to use MDALTH.
+### Problems
+
+There may be some issues with cuda 11.8, discussed at [Issue 97041](https://github.com/pytorch/pytorch/issues/97041). If you get a warning about convolutional layers, try the solution below:
+
+```
+cd ~/anaconda/envs/MDALTH/lib
+sudo ln -sfn libnvrtc.so.11.8.89 libnvrtc.so
+```
 
 ## Similar Libraries
 

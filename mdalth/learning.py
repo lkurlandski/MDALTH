@@ -14,6 +14,8 @@ from datasets import Dataset, DatasetDict
 import numpy as np
 from transformers import (
     AutoModelForSequenceClassification,
+    AutoModelForImageClassification,
+    AutoModelForAudioClassification,
     PreTrainedModel,
     Trainer,
 )
@@ -307,9 +309,27 @@ class Evaluator:
         self.iteration = _iteration
         self.config: Config = load_with_pickle(io_helper.config_path)
         self.pool = Pool(Dataset.load_from_disk(io_helper.tr_dataset_path))
+        self.AutoModel = None
 
-    def __call__(self) -> Evaluator:
-        return self
+    # TODO: good chance we'll have to use this for checkpointing, so make its own function.
+    def __call__(self) -> None:
+        AutoModels = (
+            AutoModelForSequenceClassification,
+            AutoModelForImageClassification,
+            AutoModelForAudioClassification,
+        )
+        success = []
+        errors = []
+        for AutoModel in AutoModels:
+            try:
+                AutoModel.from_pretrained(self.io_helper.model_path(0))
+                success.append(True)
+            except ValueError as err:
+                success.append(False)
+                errors.append(err)
+        if sum(success) != 1:
+            raise Exception(errors)
+        self.AutoModel = AutoModels[success.index(True)]
 
     def __iter__(self) -> Learner:
         return self
@@ -360,7 +380,7 @@ class Evaluator:
             json.dump(results, f)
 
     def eval(self) -> tuple[Trainer, dict[str, float]]:
-        model = AutoModelForSequenceClassification.from_pretrained(
+        model = self.AutoModel.from_pretrained(
             self.io_helper.model_path(self.iteration)
         )
         ts_trainer = self.ts_trainer_fact(None, self.ts_dataset, model)

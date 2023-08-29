@@ -9,7 +9,7 @@ import random
 import sys
 from typing import Optional
 
-from datasets import load_dataset
+from datasets import load_dataset, Dataset, DatasetDict
 import evaluate
 from evaluate import EvaluationModule
 import numpy as np
@@ -40,6 +40,12 @@ from mdalth.tp import ProportionOrInteger
 from mdalth.utils import proportion_or_integer_to_int
 
 from example.task_manager import TextTaskManager, ImageTaskManager, AudioTaskManager
+
+
+DATASET_KWARGS = {
+    "PolyAI/minds14": dict(name="en-US"),
+    "speech_commands": dict(name="v0.02"),
+}
 
 
 @dataclass
@@ -88,7 +94,16 @@ def main(args: Arguments, config: Config, training_args: TrainingArguments) -> N
     else:
         raise ValueError(f"Unknown stopper {args.stopper}.")
 
-    dataset = load_dataset(args.dataset)
+    dataset = load_dataset(args.dataset, **DATASET_KWARGS.get(args.dataset, {}))
+    if isinstance(dataset, Dataset):
+        dataset = dataset.train_test_split()
+    if "validation" in dataset.keys():
+        dataset["test"] = dataset.pop("validation")
+    if "train" in dataset.keys() and "test" not in dataset.keys():
+        dataset = dataset["train"].train_test_split()
+    if "train" not in dataset.keys() or "test" not in dataset.keys():
+        raise ValueError(f"Unable to find train and test splits in {dataset=}.")
+
     if args.subset is not None and args.subset > 0:
         _train_idx = range(proportion_or_integer_to_int(args.subset, len(dataset["train"])))
         _test_idx = range(proportion_or_integer_to_int(args.subset, len(dataset["test"])))
@@ -156,9 +171,7 @@ def main(args: Arguments, config: Config, training_args: TrainingArguments) -> N
         else:
             learner = Learner(pool, config, io_helper, trainer_fact, querier, stopper)
             learner()
-        for i, learner_state in enumerate(
-            tqdm(learner), learner.iteration
-        ):  # pylint: disable=unused-variable
+        for i, learner_state in enumerate(tqdm(learner), learner.iteration):
             ...
 
     if config.evaluate:

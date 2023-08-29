@@ -27,8 +27,8 @@ python ./example/main.py \
 --stopper="null" \
 --n_iterations=16 \
 --log_level="warning" \
---n_start=128 \
---n_query=16 \
+--n_start=32 \
+--n_query=32 \
 --output_dir="WILL_BE_IGNORED" \
 --learning_rate="2e-5" \
 --per_device_train_batch_size=64 \
@@ -41,4 +41,6 @@ python ./example/main.py \
 --save_total_limit=1 \
 --optim="adamw_torch" \
 --group_by_length \
+--dataloader_num_workers=16 \
+--dataloader_pin_memory \
 --fp16=True

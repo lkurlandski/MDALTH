@@ -25,10 +25,10 @@ python ./example/main.py \
 --metric="accuracy" \
 --querier="random" \
 --stopper="null" \
---n_iterations=4 \
+--n_iterations=16 \
 --log_level="warning" \
---n_start=64 \
---n_query=64 \
+--n_start=32 \
+--n_query=32 \
 --output_dir="WILL_BE_IGNORED" \
 --learning_rate="2e-5" \
 --per_device_train_batch_size=32 \
@@ -43,4 +43,6 @@ python ./example/main.py \
 --optim="adamw_torch" \
 --warmup_ratio=0.1 \
 --group_by_length \
+--dataloader_num_workers=16 \
+--dataloader_pin_memory \
 --fp16=True
