@@ -20,21 +20,21 @@ MDALTH allows users to prototype active learning experiments quickly. All experi
 - Max Training Epochs: 24
 - Early Stopping Patience: 2
 
-### text classification
+### text classification (`example/text.sh`)
 
 - model: [distilbert-base-uncased](https://huggingface.co/distilbert-base-uncased)
 - dataset: [ag_news](https://huggingface.co/datasets/ag_news)
 
 Coming Soon!
 
-### image classification
+### image classification (`example/image.sh`)
 
 - model: [google/vit-base-patch16-224-in21k](https://huggingface.co/google/vit-base-patch16-224-in21k)
 - dataset: [food101](https://huggingface.co/datasets/food101)
 
 Coming Soon!
 
-### audio classification
+### audio classification (`example/audio.sh`)
 
 - model: [facebook/wav2vec2-base](https://huggingface.co/facebook/wav2vec2-base)
 - dataset: [speech_commands](https://huggingface.co/datasets/speech_commands)
