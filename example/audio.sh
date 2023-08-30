@@ -14,15 +14,13 @@
 
 source ~/anaconda3/etc/profile.d/conda.sh
 conda activate MDALTH
-export CUDA_VISIBLE_DEVICES=1
 
-python ./example/main.py \
+torchrun --standalone --nnodes=1 --nproc-per-node=1 ./example/main.py \
 --task="audio" \
 --learn \
 --evaluate \
---dataset="speech_commands" \
+--dataset="PolyAI/minds14" \
 --pretrained_model_name_or_path="facebook/wav2vec2-base" \
---metric="accuracy" \
 --querier="random" \
 --stopper="null" \
 --n_iterations=16 \
@@ -30,9 +28,10 @@ python ./example/main.py \
 --n_start=32 \
 --n_query=32 \
 --output_dir="WILL_BE_IGNORED" \
---learning_rate="2e-5" \
---per_device_train_batch_size=32 \
---per_device_eval_batch_size=32 \
+--learning_rate="3e-5" \
+--per_device_train_batch_size=64 \
+--per_device_eval_batch_size=64 \
+--auto_find_batch_size \
 --gradient_accumulation_steps=4 \
 --num_train_epochs=25 \
 --weight_decay=0.01 \
@@ -45,4 +44,5 @@ python ./example/main.py \
 --group_by_length \
 --dataloader_num_workers=16 \
 --dataloader_pin_memory \
+--logging_strategy="epoch" \
 --fp16=True

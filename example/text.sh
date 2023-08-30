@@ -14,16 +14,14 @@
 
 source ~/anaconda3/etc/profile.d/conda.sh
 conda activate MDALTH
-export CUDA_VISIBLE_DEVICES=1
 
-python ./example/main.py \
+torchrun --standalone --nnodes=1 --nproc-per-node=1 ./example/main.py \
 --task="text" \
 --learn \
 --evaluate \
 --dataset="ag_news" \
 --pretrained_model_name_or_path="distilbert-base-uncased" \
---metric="accuracy" \
---querier=$1 \
+--querier="random" \
 --stopper="null" \
 --n_iterations=16 \
 --log_level="warning" \
@@ -43,4 +41,5 @@ python ./example/main.py \
 --group_by_length \
 --dataloader_num_workers=16 \
 --dataloader_pin_memory \
+--logging_strategy="epoch" \
 --fp16=True
