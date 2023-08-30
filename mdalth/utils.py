@@ -5,7 +5,6 @@ Utility functions.
 from collections.abc import Collection
 from pathlib import Path
 import pickle
-import warnings
 from typing import Any, Optional
 
 import numpy as np
