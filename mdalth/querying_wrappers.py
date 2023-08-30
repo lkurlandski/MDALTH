@@ -30,13 +30,14 @@ class QuerierWrapper(ABC):
 
     @abstractmethod
     def __call__(self, n_query: int, model: PreTrainedModel) -> np.ndarray:
-        pass
+        assert n_query <= len(self.pool.unlabeled_idx), "Requested to query more than available."
 
 
 class RandomQuerierWrapper(QuerierWrapper):
     """Interface between the random querier and the Learner."""
 
     def __call__(self, n_query: int, *_) -> np.ndarray:
+        super().__call__(n_query, None)
         return self.querier(n_query, self.pool.unlabeled_idx)
 
 
@@ -56,6 +57,7 @@ class ClasswiseProbsQuerierWrapper(QuerierWrapper):
         self.probabalistic = probabalistic
 
     def __call__(self, n_query: int, model: PreTrainedModel) -> np.ndarray:
+        super().__call__(n_query, model)
         trainer = self.trainer_fact(model=model)
         prediction_output = trainer.predict(self.pool.dataset.select(self.pool.unlabeled_idx))
         classwise_probs = prediction_output.predictions

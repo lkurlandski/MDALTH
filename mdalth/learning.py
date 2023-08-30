@@ -42,7 +42,8 @@ def compute_total_al_iterations(n_rows: int, n_start: int, n_query: int) -> int:
     return q + 1
 
 
-# TODO: refactor scripting args into their own dataclass
+# TODO: refactor scripting args into their own dataclass?
+# Or make this a full-blown class not a dataclass (its kind of complicated)?
 @dataclass
 class Config:
     """Configures the active learning loop."""
@@ -104,7 +105,7 @@ class Config:
         self._configured = True
         return self
 
-    # TODO: move to function
+    # TODO: move to function?
     def validation_set_size(self, num_labeled: Optional[int] = None) -> int:
         assert self._configured, "Config must be configured!"
         if isinstance(self.val_set_size, int):
@@ -113,7 +114,7 @@ class Config:
             return int(self.val_set_size * num_labeled)
         raise RuntimeError()
 
-    # TODO: move to function
+    # TODO: move to function?
     def output_root(self) -> Path:
         assert self._configured, "Config must be configured!"
         others = [self.n_start, self.n_query, self.val_set_size]
@@ -194,6 +195,9 @@ class Learner:
             raise RuntimeError("The zeroth iteration has not been run.")
         if self.iteration > len(self):
             raise StopIteration()
+        if len(self.pool.unlabeled_idx) == 0:
+            warnings.warn("No unlabeled data left to query. This should have been caught earlier.")
+            raise StopIteration()
         self.pre()
         batch = self.query()
         dataset, trainer, train_output = self.train(batch)
@@ -260,10 +264,9 @@ class Learner:
         test_size = self.config.validation_set_size(len(self.pool.labeled_idx))
         dataset = self.pool.labeled.train_test_split(test_size=test_size)
         trainer = self.trainer_fact(dataset["train"], dataset["test"])
-        object.__setattr__(
+        object.__setattr__(  # FIXME: replace with dataclasses.replace
             trainer.args, "output_dir", self.io_helper.checkpoints_path(self.iteration)
         )
-
         train_output = trainer.train()
         return dataset, trainer, train_output
 
@@ -311,9 +314,8 @@ class Evaluator:
         self.pool = Pool(Dataset.load_from_disk(io_helper.tr_dataset_path))
         self.AutoModel = None
 
-    # TODO: good chance we'll have to use this for checkpointing, so make its own function.
     def __call__(self) -> None:
-        AutoModels = (
+        AutoModels = (  # TODO: make its own function for reusability.
             AutoModelForSequenceClassification,
             AutoModelForImageClassification,
             AutoModelForAudioClassification,
@@ -331,7 +333,7 @@ class Evaluator:
             raise Exception(errors)
         self.AutoModel = AutoModels[success.index(True)]
 
-    def __iter__(self) -> Learner:
+    def __iter__(self) -> Evaluator:
         return self
 
     def __len__(self) -> int:

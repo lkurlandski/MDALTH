@@ -327,6 +327,7 @@ class TrainerFactory:
         )
 
 
+# FIXME: remove, as this is not nececcary in later versions of transformers. 
 class TrainingArgumentsFactory:
     """Create TrainingArguments objects with a consistent configuration.
 
@@ -357,13 +358,13 @@ class TrainingArgumentsFactory:
     ) -> TrainingArguments:
         args = deepcopy(self.args)
         if train_dataset is not None:
-            object.__setattr__(
+            object.__setattr__(  # FIXME: replace with dataclasses.replace
                 args,
                 "per_device_train_batch_size",
                 min(self.args.per_device_train_batch_size, len(train_dataset)),
             )
         if eval_dataset is not None:
-            object.__setattr__(
+            object.__setattr__(  # FIXME: replace with dataclasses.replace
                 args,
                 "per_device_eval_batch_size",
                 min(self.args.per_device_eval_batch_size, len(eval_dataset)),
