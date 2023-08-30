@@ -5,6 +5,7 @@ huggingface wrappers around the core querying algorithms.
 from __future__ import annotations
 from abc import abstractmethod, ABC
 from typing import Optional
+import warnings
 
 import numpy as np
 from transformers import PreTrainedModel
@@ -30,7 +31,11 @@ class QuerierWrapper(ABC):
 
     @abstractmethod
     def __call__(self, n_query: int, model: PreTrainedModel) -> np.ndarray:
-        assert n_query <= len(self.pool.unlabeled_idx), "Requested to query more than available."
+        if n_query > len(self.pool.unlabeled_idx):
+            warnings.warn(
+                "Number of queries requested exceeds number of unlabeled examples. "
+                "Returning all unlabeled examples."
+            )
 
 
 class RandomQuerierWrapper(QuerierWrapper):
@@ -38,7 +43,7 @@ class RandomQuerierWrapper(QuerierWrapper):
 
     def __call__(self, n_query: int, *_) -> np.ndarray:
         super().__call__(n_query, None)
-        return self.querier(n_query, self.pool.unlabeled_idx)
+        return self.querier(min(n_query, len(self.pool.unlabeled_idx)), self.pool.unlabeled_idx)
 
 
 class ClasswiseProbsQuerierWrapper(QuerierWrapper):
