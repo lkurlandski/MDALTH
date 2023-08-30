@@ -5,6 +5,7 @@ Utility functions.
 from collections.abc import Collection
 from pathlib import Path
 import pickle
+import warnings
 from typing import Any, Optional
 
 import numpy as np
@@ -44,9 +45,18 @@ def probs_to_preds(probs: np.ndarray) -> np.ndarray:
     return np.argmax(probs, axis=1)
 
 
-def proportion_or_integer_to_int(x: float, total: Optional[int]) -> int:
-    if x >= 1.0 and x.is_integer():
+def proportion_or_integer_to_int(x: int | float, total: Optional[int] = None) -> int:
+    """
+    Notes
+    -----
+    If `x` is 1.0, it is interpreted as 100% and `total` is returned.
+    If `x` is an integer or an integer represented as a floating point, it is returned.
+    Otherwise, `x` proportion of `total` is returned, rounded to the nearest integer.
+    """
+    if total and not isinstance(total, int):
+        raise TypeError(f"total must be an integer, not {type(total)}")
+    if x == 1.0:
+        return total
+    if isinstance(x, int) or x.is_integer():
         return int(x)
-    if 0 <= x <= 1.0 and total is not None:
-        return int(x * total)
-    raise RuntimeError(f"Cannot convert {x=} to integer with {total=}.")
+    return int(round(x * total, 0))
