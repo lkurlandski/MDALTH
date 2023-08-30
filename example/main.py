@@ -181,28 +181,14 @@ def main(args: Arguments, config: Config, training_args: TrainingArguments) -> N
     os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "true"
 
     if config.learn:
-        if config.resume or config.resume_from_al_checkpoint:
-            learner = Learner.load_from_disk(
-                io_helper.root_path,
-                config,
-                trainer_fact,
-                querier,
-                stopper,
-                iteration=config.resume_from_al_checkpoint,
-            )
-        else:
-            learner = Learner(pool, config, io_helper, trainer_fact, querier, stopper)
-            learner()
+        learner = Learner(pool, config, io_helper, trainer_fact, querier, stopper)
+        learner()
         for i, learner_state in enumerate(tqdm(learner), learner.iteration):
             ...
 
     if config.evaluate:
-        if config.resume or config.resume_from_al_checkpoint:
-            raise NotImplementedError()
-            evaluator = Evaluator.load_from_disk()
-        else:
-            evaluator = Evaluator(trainer_fact, dataset["test"], io_helper)
-            evaluator()
+        evaluator = Evaluator(trainer_fact, dataset["test"], io_helper)
+        evaluator()
         for i, (model, results) in enumerate(tqdm(evaluator), 1):  # pylint: disable=unused-variable
             ...
 

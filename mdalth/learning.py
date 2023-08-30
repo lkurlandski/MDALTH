@@ -74,14 +74,6 @@ class Config:
         default=False,
         metadata={"help": "Whether to run the evaluation loop. Used for scripting."},
     )
-    resume: bool = field(
-        default=False,
-        metadata={"help": "Resume from previous stage of progress. Used for scripting."},
-    )
-    resume_from_al_checkpoint: Optional[int] = field(
-        default=0,
-        metadata={"help": "Checkpoint to resume. If None, resume from latest. Used for scripting."},
-    )
 
     def __post_init__(self) -> None:
         self._configured = False
@@ -215,37 +207,9 @@ class Learner:
     def num_rows(self) -> int:
         return self.dataset.num_rows
 
-    # TODO: checkpointing
     @classmethod
-    def load_from_disk(
-        cls,
-        output_dir: Path,
-        config: Config,
-        trainer_fact: TrainerFactory,
-        querier: Optional[Querier] = None,
-        stopper: Optional[Stopper] = None,
-        iteration: Optional[int] = None,
-    ) -> Learner:
-        warnings.warn("Checkpointing is not very much in a working state. Behavior undefined.")
-        io_helper = IOHelper(output_dir, overwrite=True)
-        if not iteration:
-            iteration = int(get_highest_path(io_helper.iterations_path.glob("*")).name) - 1
-        dataset = Dataset.load_from_disk(io_helper.tr_dataset_path)
-        batches = [np.loadtxt(io_helper.batch_path(i)) for i in range(iteration)]
-        # TODO: remove these hacks.
-        batches = [b.astype(int) for b in batches]
-        labeled_idx = np.concatenate(batches)
-        pool = Pool.from_pools(dataset, labeled_idx)
-        learner = cls(pool, config, io_helper, trainer_fact, querier, stopper, _iteration=iteration)
-        learner.state = LearnerState(
-            batches[-1],
-            None,
-            learner.iteration,
-            None,
-            None,
-            AutoModelForSequenceClassification.from_pretrained(io_helper.model_path(iteration)),
-        )
-        return learner
+    def load_from_disk(cls) -> Learner:
+        raise NotImplementedError()
 
     def save_to_disk(
         self, batch: np.ndarray, model: PreTrainedModel, train_output: TrainOutput
@@ -363,17 +327,9 @@ class Evaluator:
     def ts_num_rows(self) -> int:
         return self.ts_dataset.num_rows
 
-    # TODO: checkpointing system.
     @classmethod
-    def load_from_disk(cls, output_dir: Path, iteration: Optional[int] = None) -> Evaluator:
-        warnings.warn("Checkpointing is not very much in a working state. Behavior undefined.")
-        io_helper = IOHelper(output_dir)
-        if not iteration:
-            complete = []
-            for p in io_helper.iterations_path.glob("*"):
-                if io_helper._test_metrics in [p_.name for p_ in p.iterdir()]:
-                    complete.append(io_helper.iterations_path / p.name)
-            iteration = get_highest_path(complete)
+    def load_from_disk(cls) -> Evaluator:
+        raise NotImplementedError()
 
     def save_to_disk(self, results: dict[str, float]) -> None:
         if self.iteration == 0:
