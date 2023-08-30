@@ -38,6 +38,7 @@ class IOHelper:
         | - iterations
             | - 0
                 | - batch.txt
+                | - log_history.json
                 | - test_metrics.json
                 | - trainer_output.pickle
                 | - model
@@ -71,6 +72,7 @@ class IOHelper:
     _model: ClassVar[str] = "model/"
     _checkpoints: ClassVar[str] = "checkpoints/"
     _batch: ClassVar[str] = "batch.txt"
+    _log_history: ClassVar[str] = "log_history.json"
     _test_metrics: ClassVar[str] = "test_metrics.json"
     _trainer_output: ClassVar[str] = "trainer_output.pickle"
 
@@ -147,6 +149,9 @@ class IOHelper:
 
     def batch_path(self, iteration: int) -> Path:
         return self.iterations_path / str(iteration) / self._batch
+
+    def log_history_path(self, iteration: int) -> Path:
+        return self.iterations_path / str(iteration) / self._log_history
 
     def test_metrics_path(self, iteration: int) -> Path:
         return self.iterations_path / str(iteration) / self._test_metrics

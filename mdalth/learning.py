@@ -170,7 +170,7 @@ class Learner:
         self.pre()
         batch = self.query_first()
         dataset, trainer, train_output = self.train(batch)
-        self.save_to_disk(batch, trainer.model, train_output)
+        self.save_to_disk(batch, trainer, train_output)
         self.post()
         self.iteration += 1
         self.state = LearnerState(batch, dataset, self.iteration, trainer, train_output)
@@ -193,7 +193,7 @@ class Learner:
         self.pre()
         batch = self.query()
         dataset, trainer, train_output = self.train(batch)
-        self.save_to_disk(batch, trainer.model, train_output)
+        self.save_to_disk(batch, trainer, train_output)
         self.post()
         self.iteration += 1
         self.state = LearnerState(batch, dataset, self.iteration, trainer, train_output)
@@ -212,7 +212,10 @@ class Learner:
         raise NotImplementedError()
 
     def save_to_disk(
-        self, batch: np.ndarray, model: PreTrainedModel, train_output: TrainOutput
+        self,
+        batch: np.ndarray,
+        trainer: Trainer,
+        train_output: TrainOutput,
     ) -> None:
         if self.iteration == 0:
             self.io_helper.mkdir(exist_ok=True)
@@ -220,8 +223,10 @@ class Learner:
             self.dataset.save_to_disk(self.io_helper.tr_dataset_path)
 
         np.savetxt(self.io_helper.batch_path(self.iteration), batch, fmt="%i")
-        model.save_pretrained(self.io_helper.model_path(self.iteration))
+        trainer.model.save_pretrained(self.io_helper.model_path(self.iteration))
         save_with_pickle(self.io_helper.trainer_output_path(self.iteration), train_output)
+        with open(self.io_helper.log_history_path(self.iteration), "w") as fp:
+            json.dump(fp, trainer.state.log_history)
 
     def train(self, batch: np.ndarray) -> tuple[Dataset, Trainer, TrainOutput]:
         self.pool.label(batch)
