@@ -226,7 +226,7 @@ class Learner:
         trainer.model.save_pretrained(self.io_helper.model_path(self.iteration))
         save_with_pickle(self.io_helper.trainer_output_path(self.iteration), train_output)
         with open(self.io_helper.log_history_path(self.iteration), "w") as fp:
-            json.dump(fp, trainer.state.log_history)
+            json.dump(trainer.state.log_history, fp)
 
     def train(self, batch: np.ndarray) -> tuple[Dataset, Trainer, TrainOutput]:
         self.pool.label(batch)
@@ -240,7 +240,8 @@ class Learner:
         return dataset, trainer, train_output
 
     def query_first(self) -> np.ndarray:
-        return RandomQuerier()(self.config.n_start, self.pool.unlabeled_idx)
+        n_query = min(self.config.n_start, len(self.pool.unlabeled_idx))
+        return RandomQuerier()(n_query, self.pool.unlabeled_idx)
 
     def pre(self) -> None:
         """Subclass and override to inject custom behavior."""
