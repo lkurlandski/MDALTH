@@ -17,7 +17,8 @@ from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
 from transformers import (
-    DataCollator,
+    DataCollatorWithPadding,
+    DefaultDataCollator,
     EvalPrediction,
     PreTrainedModel,
     PreTrainedTokenizerBase,
@@ -293,7 +294,7 @@ class TrainerFactory:
         self,
         model_init: Optional[Callable[[], PreTrainedModel]] = None,
         args: Optional[TrainingArguments] = None,
-        data_collator: Optional[DataCollator] = None,
+        data_collator: Optional[DefaultDataCollator | DataCollatorWithPadding] = None,
         tokenizer: Optional[PreTrainedTokenizerBase] = None,
         compute_metrics: Optional[Callable[[EvalPrediction], dict]] = None,
         callbacks: Optional[list[TrainerCallback]] = None,

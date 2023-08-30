@@ -8,7 +8,32 @@ Our goal is to provide modular, framework agnostic query algorithms and stopping
 
 ## Status
 
-The main branch is currently a pre-release. Our immediate goal is to develop a reasonable API for the stopping methods, tidy up a few other incomplete features, and improve documentation for the system. We hope to release a 0.0 version shortly.
+Current status: prelease
+
+### 0.0.0
+ - AL learning loop
+ - AL evaluation loop
+ - basic query algorithms and accessbile wrappers for them
+ - basic stopping algorithms
+
+### 0.1.0
+ - checkpointing system
+ - optional run with full dataset
+
+### 0.2.0
+ - accessible stopping wrappers
+   - break AL loop
+   - dump data for large-scale evaluation
+
+### 0.3.0
+ - validation set control
+
+### 0.4.0
+ - query size control
+
+### 0.5.0
+ - testing framework
+ - documentation
 
 ## Examples
 
