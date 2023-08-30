@@ -73,7 +73,10 @@ class Arguments:
     pretrained_model_name_or_path: str = field(metadata={"help": "Pretrained model to use."})
     querier: str = field(default="random", metadata={"help": "Querier to use."})
     stopper: str = field(default="null", metadata={"help": "Stopper to use."})
-    subset: Optional[ProportionOrInteger] = field(
+    subset_train: Optional[ProportionOrInteger] = field(
+        default=None, metadata={"help": "Subset of the dataset to use."}
+    )
+    subset_test: Optional[ProportionOrInteger] = field(
         default=None, metadata={"help": "Subset of the dataset to use."}
     )
 
@@ -126,11 +129,16 @@ def main(args: Arguments, config: Config, training_args: TrainingArguments) -> N
 
     # Apply some pre-preprocessing to the dataset.
     dataset = DATASET_WRANGLING[args.dataset](dataset)
-    if args.subset is not None and args.subset > 0:
-        _train_idx = range(proportion_or_integer_to_int(args.subset, len(dataset["train"])))
-        _test_idx = range(proportion_or_integer_to_int(args.subset, len(dataset["test"])))
-        dataset["train"] = dataset["train"].select(_train_idx)
-        dataset["test"] = dataset["test"].select(_test_idx)
+
+    # Then select a subset of the dataset if requested.
+    if args.subset_train is not None:
+        _n = proportion_or_integer_to_int(args.subset_train, len(dataset["train"]))
+        _idx = range(min(_n, len(dataset["train"])))
+        dataset["train"] = dataset["train"].select(_idx)
+    if args.subset_test is not None:
+        _n = proportion_or_integer_to_int(args.subset_test, len(dataset["test"]))
+        _idx = range(min(_n, len(dataset["test"])))
+        dataset["test"] = dataset["test"].select(_idx)
 
     # Initialize the task manager, which abstracts the actions for text, image, and audio.
     id2label = {str(i): l for i, l in enumerate(dataset["train"].features["label"].names)}
