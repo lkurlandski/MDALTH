@@ -39,7 +39,7 @@ from mdalth.stopping import (
 from mdalth.tp import ProportionOrInteger
 from mdalth.utils import proportion_or_integer_to_int
 
-from example.task_manager import TextTaskManager, ImageTaskManager, AudioTaskManager
+from example.manager import TextTaskManager, ImageTaskManager, AudioTaskManager
 
 
 # Additional keyword arguments supplied to load_dataset for specific datasets.
@@ -47,7 +47,7 @@ DATASET_KWARGS = defaultdict(
     dict,
     {
         "PolyAI/minds14": dict(name="en-US"),
-        "speech_commands": dict(name="v0.02"),
+        "speech_commands": dict(name="v0.01"),
     }
 )
 
@@ -171,7 +171,7 @@ def main(args: Arguments, config: Config, training_args: TrainingArguments) -> N
         args=training_args,
         data_collator=task_manager.data_collator,
         tokenizer=task_manager.tokenizer,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=2)],
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
         compute_metrics=compute_metrics,
     )
 
@@ -188,12 +188,14 @@ def main(args: Arguments, config: Config, training_args: TrainingArguments) -> N
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "true"
 
+    # Run the active learning experiment.
     if config.learn:
         learner = Learner(pool, config, io_helper, trainer_fact, querier, stopper)
         learner()
         for i, learner_state in enumerate(tqdm(learner), learner.iteration):
             ...
 
+    # Evaluate the active learning experiment on a hold-out set.
     if config.evaluate:
         evaluator = Evaluator(trainer_fact, dataset["test"], io_helper)
         evaluator()

@@ -37,15 +37,16 @@ Current status: prelease
 
 ## Examples
 
-MDALTH allows users to prototype active learning experiments quickly. All experiments are run with `./example/main.py` then analyzed with the `./example/analysis.ipynb` notebook. Each experiment uses the following experimental setup:
+MDALTH allows users to prototype active learning experiments quickly. In the `./example` directory, we developed a very simple project to run active learning experiments for text, image, and audio classification tasks. By adjusting the command-line-arguments, this example can run experiments with many different pretrained models and datasets. We run our experiments with the following hyperparameters:
 
-- AL initial size: 32
-- AL batch size: 32
-- AL iterations: 16
-- Max Training Epochs: 24
-- Early Stopping Patience: 2
+- AL initial size: 10%
+- AL batch size: 5%
+- Max Training Epochs: 32
+- Early Stopping Patience: 3
 
-### text classification (`example/text.sh`)
+The rest of the hyperparameters are detailed in the `./example/main.sh` script, which configures and runs the experiments.
+
+### text classification
 
 - model: [distilbert-base-uncased](https://huggingface.co/distilbert-base-uncased)
 - dataset: [ag_news](https://huggingface.co/datasets/ag_news)
