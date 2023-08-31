@@ -11,8 +11,7 @@ import sys
 if sys.version_info.major >= 3 and sys.version_info.minor >= 11:
     from typing import TypeAlias
 else:
-    def TypeAlias(_, type_):
-        return type_
+    from typing import Any as TypeAlias
 
 import numpy as np
 
