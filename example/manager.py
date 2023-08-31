@@ -113,7 +113,6 @@ class ImageTaskManager(TaskManager):
         examples["pixel_values"] = [
             self.transforms(img.convert("RGB")) for img in examples["image"]
         ]
-        # del examples["image"]
         return examples
 
 
