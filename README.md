@@ -25,7 +25,7 @@ MDALTH allows users to prototype active learning experiments quickly. In the `./
 - model: [facebook/wav2vec2-base](https://huggingface.co/facebook/wav2vec2-base)
 - dataset: [speech_commands](https://huggingface.co/datasets/speech_commands)
 
-![image](./example/image.png)
+![image](./example/audio.png)
 
 ## Setup
 
