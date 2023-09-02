@@ -87,12 +87,14 @@ class QuerierAnalyzer:
             x = list(range(analyzer.n_iterations))
             for _ in analyzer.test_metrics[0].keys():
                 y = [d["eval_accuracy"] for d in analyzer.test_metrics]
-                self.ax.plot(x, y, label=label, marker=self._markers[i], color=self._colors[i])
+                self.ax.plot(x, [_y * 100 for _y in y], label=label, marker=self._markers[i], color=self._colors[i])
             max_iter = max(len(x), max_iter)
         self.ax.set_xlabel("Iteration")
-        self.ax.set_ylabel("Accuracy")
-        self.ax.set_ylim(0, 1)
+        self.ax.set_ylabel("Accuracy (%)")
+        self.ax.set_ylim(0, 100)
         self.ax.set_xlim(0, max_iter)
+        self.ax.set_xticks(range(0, max_iter, 1))
+        self.ax.set_yticks(range(0, 100, 10))
         self.ax.grid()
         self.ax.legend()
         self.ax.legend()
@@ -101,25 +103,26 @@ class QuerierAnalyzer:
             self.fig.savefig(outfile, dpi=400)
 
 
-def generate_plots(task: str, config: Path) -> None:
+def generate_plots(task: str, tail: Path) -> None:
     analyzers = defaultdict(dict)
     for querier in QUERIERS:
         for stopper in STOPPERS:
-            root = Path(f"./example/output/{task}/{querier}/{stopper}") / config
+            root = Path(f"./example/output/{task}/{querier}/{stopper}") / tail
             if not root.exists():
                 continue
             io_helper = IOHelper(root)
             a = Analyzer(io_helper, ("eval_accuracy",))()
             analyzers[querier][stopper] = a
 
-    qa = QuerierAnalyzer([analyzers[q]["null"] for q in analyzers], QUERIERS)
+    qa = QuerierAnalyzer([analyzers[q]["null"] for q in analyzers], analyzers.keys())
     qa = qa(f"./example/output/{task}/queriers.png")
 
 
 def main() -> None:
-    generate_plots(task="text", config=Path())
-    generate_plots(task="image", config=Path())
-    generate_plots(task="audio", config=Path())
+    tail = "1638/819/0.1"
+    generate_plots("text", tail)
+    generate_plots("image", tail)
+    generate_plots("audio", tail)
 
 
 if __name__ == "__main__":
